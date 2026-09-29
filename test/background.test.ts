@@ -327,6 +327,30 @@ describe('findDuplicateTabs', () => {
 // ---------- snapshot / restore ----------
 
 describe('undo snapshot', () => {
+  it('captures names, colors and collapsed state with the source window', async () => {
+    vi.mocked(chrome.tabGroups.query).mockResolvedValue([{ id: 12, title: '开发文档', color: 'blue', collapsed: true }] as any);
+    const snapshot = await snapshotCurrentState();
+    expect(snapshot).toMatchObject({ windowId: 1, groupDetails: [{ groupId: 12, title: '开发文档', color: 'blue', collapsed: true }] });
+  });
+
+  it.each([true, false])('restores metadata when the original group exists: %s', async exists => {
+    vi.mocked(chrome.tabGroups.query).mockResolvedValue(exists ? [{ id: 12 }] as any : []);
+    await restoreSnapshot({ timestamp: Date.now(), windowId: 1,
+      groups: [{ tabId: 1, groupId: 12 }], ungrouped: [2],
+      groupDetails: [{ groupId: 12, title: '开发文档', color: 'blue', collapsed: true }],
+    });
+    expect(chrome.tabs.group).toHaveBeenCalledWith(expect.objectContaining(exists ? { groupId: 12 } : { createProperties: { windowId: 1 } }));
+    expect(chrome.tabGroups.update).toHaveBeenCalledWith(exists ? 12 : 100, { title: '开发文档', color: 'blue', collapsed: true });
+    expect(chrome.tabs.ungroup).toHaveBeenCalledWith([2]);
+  });
+
+  it('refuses undo from another window without modifying tabs', async () => {
+    await saveUndoSnapshot({ timestamp: Date.now(), windowId: 2, groups: [], ungrouped: [1] });
+    expect((await undoLastGrouping()).error).toContain('上次整理的窗口');
+    expect(chrome.tabs.ungroup).not.toHaveBeenCalled();
+    expect(chrome.tabs.group).not.toHaveBeenCalled();
+  });
+
   it('takes snapshot of current tab grouping state', async () => {
     vi.mocked(chrome.tabs.query).mockResolvedValue([
       { id: 1, title: 'A', url: 'https://a.com', groupId: 100 },

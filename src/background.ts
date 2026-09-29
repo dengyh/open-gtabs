@@ -271,26 +271,37 @@ export async function snapshotCurrentState(): Promise<UndoSnapshot> {
     else ungrouped.push(t.id);
   }
 
-  return { timestamp: Date.now(), groups, ungrouped };
+  const windowId = await getCurrentWindowId();
+  const groupDetails = (await chrome.tabGroups.query({ windowId })).map(group => ({
+    groupId: group.id, title: group.title || '', color: group.color as Color, collapsed: group.collapsed,
+  }));
+  return { timestamp: Date.now(), windowId, groupDetails, groups, ungrouped };
 }
 
 export async function restoreSnapshot(snapshot: UndoSnapshot): Promise<void> {
-  if (snapshot.ungrouped.length > 0) {
-    try {
-      await ungroupTabsSafe(snapshot.ungrouped);
-    } catch { /* stale tab IDs during restore — expected */ }
+  const windowId = await getCurrentWindowId();
+  if (snapshot.windowId !== undefined && snapshot.windowId !== windowId) {
+    throw new Error('请切换到上次整理的窗口后再撤销');
   }
+  const currentTabs = await chrome.tabs.query({ windowId });
+  const currentIds = new Set(currentTabs.map(tab => tab.id));
+  const details = new Map((snapshot.groupDetails ?? []).map(group => [group.groupId, group]));
+  const ungrouped = snapshot.ungrouped.filter(id => currentIds.has(id));
+  if (ungrouped.length > 0) await ungroupTabsSafe(ungrouped);
+  const existingGroups = new Set((await chrome.tabGroups.query({ windowId })).map(group => group.id));
 
   const byGroup = new Map<number, number[]>();
   for (const { tabId, groupId } of snapshot.groups) {
+    if (!currentIds.has(tabId)) continue; // Do not pull moved tabs back from another window.
     if (!byGroup.has(groupId)) byGroup.set(groupId, []);
     byGroup.get(groupId)!.push(tabId);
   }
-
-  for (const [, tabIds] of byGroup) {
-    try {
-      await groupTabsSafe(tabIds);
-    } catch { /* stale tab IDs during restore — expected */ }
+  for (const [oldGroupId, tabIds] of byGroup) {
+    const groupId = await groupTabsSafe(tabIds, existingGroups.has(oldGroupId) ? oldGroupId : undefined, windowId);
+    const detail = details.get(oldGroupId);
+    if (groupId !== null && detail) {
+      await chrome.tabGroups.update(groupId, { title: detail.title, color: detail.color, collapsed: detail.collapsed });
+    }
   }
 }
 
@@ -546,23 +557,13 @@ export async function undoLastGrouping(): Promise<{ error?: string }> {
   if (!snapshot) return { error: '没有可撤销的分组记录' };
 
   try {
-    const currentTabs = await chrome.tabs.query({ currentWindow: true });
-    const groupedIds = currentTabs.filter(isGroupedTab).map(t => t.id).filter((id): id is number => id !== undefined);
-    if (groupedIds.length) {
-      try {
-        await ungroupTabsSafe(groupedIds);
-      } catch {
-        // ignored
-      }
-    }
-
     await restoreSnapshot(snapshot);
     await saveUndoSnapshot(null);
 
 
     return {};
   } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Undo failed' };
+    return { error: e instanceof Error ? e.message : '撤销失败' };
   }
 }
 

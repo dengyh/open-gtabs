@@ -1,6 +1,6 @@
 # gTabs 中文版 · TT Switch
 
-基于 [vaddisrinivas/gtabs](https://github.com/vaddisrinivas/gtabs) 的独立适配版：通过本机 TT Switch 整理 Chrome 标签页，提供中文界面、中文分组建议、已有分组复用和隐私过滤。当前版本：**0.5.1.2**。本项目不是上游 gTabs 或 TT Switch 的官方版本，也不是“GTab 新标签页”。
+基于 [vaddisrinivas/gtabs](https://github.com/vaddisrinivas/gtabs) 的独立适配版：通过本机 TT Switch 整理 Chrome 标签页，提供中文界面、中文分组建议、已有分组复用和隐私过滤。当前版本：**0.5.1.3**。本项目不是上游 gTabs 或 TT Switch 的官方版本，也不是“GTab 新标签页”。
 
 ## 快速安装
 

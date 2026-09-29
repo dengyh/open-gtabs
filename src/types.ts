@@ -201,6 +201,8 @@ export const MODEL_PRICING: Record<string, [number, number]> = {
 // --- Undo ---
 
 export interface UndoSnapshot {
+  windowId?: number;
+  groupDetails?: { groupId: number; title: string; color: Color; collapsed: boolean }[];
   timestamp: number;
   groups: { tabId: number; groupId: number }[];
   ungrouped: number[];
