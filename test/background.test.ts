@@ -233,9 +233,11 @@ describe('applyGroups', () => {
     ]},
   ];
 
-  it('ungroups all tabs first', async () => {
+  beforeEach(() => { vi.mocked(chrome.tabs.query).mockResolvedValue(suggestions.flatMap(g => g.tabs).map(t => ({ ...t, windowId: 1, groupId: -1 })) as any); });
+
+  it('groups directly without temporarily removing existing groups', async () => {
     await applyGroups(suggestions);
-    expect(chrome.tabs.ungroup).toHaveBeenCalledWith([1, 2, 3]);
+    expect(chrome.tabs.ungroup).not.toHaveBeenCalled();
   });
 
   it('creates groups for each suggestion', async () => {
@@ -427,7 +429,7 @@ describe('power tools', () => {
   });
 
 
-  it('purges tabs older than the stale threshold', async () => {
+  it('refuses the old unpreviewed purge operation', async () => {
     const now = Date.now();
     vi.mocked(chrome.tabs.query).mockResolvedValue([
       { id: 1, title: 'Active', url: 'https://active.com', active: true, pinned: false, lastAccessed: now - 1000, groupId: -1 },
@@ -435,10 +437,8 @@ describe('power tools', () => {
       { id: 3, title: 'Pinned', url: 'https://pinned.com', active: false, pinned: true, lastAccessed: now - (30 * 60 * 60 * 1000), groupId: -1 },
     ] as any);
 
-    const count = await purgeStaleTabs();
-
-    expect(count).toBe(1);
-    expect(chrome.tabs.remove).toHaveBeenCalledWith([2]);
+    await expect(purgeStaleTabs()).rejects.toThrow('清理中心');
+    expect(chrome.tabs.remove).not.toHaveBeenCalled();
   });
 
   it('focuses the active group by collapsing the others', async () => {
@@ -596,7 +596,7 @@ describe('event listeners', () => {
     await vi.runAllTimersAsync();
     for (let i = 0; i < 15; i++) await new Promise(r => process.nextTick(r));
 
-    expect(chrome.tabs.group).toHaveBeenCalledWith({ tabIds: [1, 2] });
+    expect(chrome.tabs.group).toHaveBeenCalledWith({ tabIds: [1, 2], createProperties: { windowId: 1 } });
   });
 
   it('debounces tab changes for auto trigger', async () => {

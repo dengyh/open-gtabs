@@ -48,6 +48,7 @@ describe('E2E Integration: Message dispatch → Background → Storage', () => {
   });
 
   it('stats increment after apply', async () => {
+    vi.mocked(chrome.tabs.query).mockResolvedValue([{ id: 1, url: 'https://github.com', groupId: -1 }, { id: 2, url: 'https://docs.com', groupId: -1 }] as any);
     const { applyGroups } = await import('../src/background');
     await applyGroups([
       { name: 'Dev', color: 'blue', tabs: [{ id: 1, title: 'GH', url: 'https://github.com' }] },
@@ -112,6 +113,8 @@ describe('E2E Integration: Message dispatch → Background → Storage', () => {
   });
 
   it('undo after apply restores state', async () => {
+    await chrome.storage.local.set({ suggestionsWindowId: 1 });
+    vi.mocked(chrome.tabs.query).mockResolvedValue([{ id: 5, title: 'GH', url: 'https://github.com', groupId: -1 }] as any);
     // Apply groups first
     vi.mocked(chrome.tabs.group).mockImplementation(async () => 100);
     await sendMsg({
@@ -125,6 +128,7 @@ describe('E2E Integration: Message dispatch → Background → Storage', () => {
     const undoRes = await sendMsg({ type: 'undo' });
     expect(undoRes.status).toBe('undone');
     expect(undoRes.error).toBeUndefined();
+    expect((await sendMsg({ type: 'organization-report' })).report).toBeNull();
   });
 
   it('undo returns error when no snapshot exists', async () => {

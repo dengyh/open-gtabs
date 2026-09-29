@@ -69,6 +69,7 @@ export interface Settings extends LLMConfig {
   silentAutoAdd: boolean;
   autoPinApps: boolean;
   staleTabThresholdHours: number;
+  cleanupReminder: boolean;
   // Smart learning
   enableCorrectionTracking: boolean;
   enableRejectionMemory: boolean;
@@ -245,6 +246,7 @@ export const DEFAULT_SETTINGS: Settings = {
   silentAutoAdd: false,
   autoPinApps: false,
   staleTabThresholdHours: 48,
+  cleanupReminder: true,
   enableCorrectionTracking: true,
   enableRejectionMemory: true,
   enableGroupDrift: false,
@@ -287,6 +289,17 @@ export type MessageType =
   | { type: 'test-connection' }
   | { type: 'check-chrome-ai' }
   | { type: 'fetch-ollama-models' }
+  | { type: 'fetch-tt-models' }
+  | { type: 'cleanup-preview' }
+  | { type: 'cleanup-close'; previewId: string; tabIds: number[] }
+  | { type: 'cleanup-dismiss'; previewId: string; tabIds: number[]; forever: boolean }
+  | { type: 'cleanup-reset' }
+  | { type: 'cleanup-summary' }
+  | { type: 'archive-list' }
+  | { type: 'archive-restore'; archiveId: string; entryIds?: string[] }
+  | { type: 'archive-delete'; archiveId: string }
+  | { type: 'organization-report' }
+  | { type: 'manual-group-tab'; tabId: number; groupName: string }
   | { type: 'consolidate-windows' }
   | { type: 'snooze-tabs'; tabIds: number[]; wakeAt: number }
   | { type: 'purge-stale' }
@@ -303,7 +316,7 @@ export type MessageType =
   | { type: 'merge-split-suggestions' }
   | { type: 'search-tabs'; query: string }
   | { type: 'get-group-stats' }
-  | { type: 'status'; status: string; suggestions?: GroupSuggestion[]; error?: string; duplicates?: TabInfo[][]; stats?: Stats; costs?: CostTotals; data?: ExportData; models?: string[]; chatResponse?: string; markdown?: string; workspaceNames?: string[]; count?: number; drifted?: boolean; driftedGroups?: string[]; mergeSplit?: MergeSplitResult; tabResults?: Array<{ id: number; title: string; url: string; groupName: string; groupId: number }>; groupStats?: Array<{ name: string; color: Color; tabCount: number; domains: string[] }> };
+  | { type: 'status'; status: string; report?: import('./reports').OrganizationReport; preview?: import('./cleanup').CleanupPreview; archives?: import('./cleanup').ArchiveBatch[]; cleanup?: import('./cleanup').CleanupResult; summary?: { count: number; checkedAt: number }; restored?: { restored: number; existing: number; failed: number }; suggestions?: GroupSuggestion[]; error?: string; duplicates?: TabInfo[][]; stats?: Stats; costs?: CostTotals; data?: ExportData; models?: string[]; chatResponse?: string; markdown?: string; workspaceNames?: string[]; count?: number; drifted?: boolean; driftedGroups?: string[]; mergeSplit?: MergeSplitResult; tabResults?: Array<{ id: number; title: string; url: string; groupName: string; groupId: number }>; groupStats?: Array<{ name: string; color: Color; tabCount: number; domains: string[] }> };
 
 declare global {
   var LanguageModel: {

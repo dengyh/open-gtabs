@@ -132,6 +132,22 @@ export async function fetchOllamaModels(baseUrl: string): Promise<string[]> {
   return (data.models || []).map((m: any) => m.name || m.model).filter(Boolean) as string[];
 }
 
+export async function fetchTTSwitchModels(config: LLMConfig): Promise<string[]> {
+  validateLocalEndpoint(config.baseUrl, '/tencent/v1');
+  if (config.provider !== 'tt-switch' || !config.apiKey.trim()) throw new Error('请先填写 TT Switch API Token');
+  const res = await fetchWithTimeout(`${normalizeBaseUrl(config.baseUrl)}/models`, {
+    method: 'GET', redirect: 'error', headers: { Authorization: `Bearer ${config.apiKey.trim()}` },
+  }, 8000);
+  if (!res.ok) throw new Error(`模型列表读取失败（HTTP ${res.status}），当前模型保持不变，可手动填写模型 ID。`);
+  const data = await res.json();
+  if (!Array.isArray(data?.data)) throw new Error('模型列表格式不受支持，可手动填写模型 ID。');
+  const models = [...new Set<string>(data.data.map((m: unknown) =>
+    m && typeof m === 'object' && 'id' in m && typeof m.id === 'string' ? m.id.trim() : '',
+  ).filter((id: string) => id && id.length <= 200 && !/[\x00-\x1f]/.test(id)))].sort();
+  if (!models.length) throw new Error('TT Switch 未返回模型，当前模型保持不变。');
+  return models;
+}
+
 export async function testConnection(config: LLMConfig): Promise<string> {
   const result = await completeWithUsage(config, [
     { role: 'user', content: 'Reply with exactly: OK' },

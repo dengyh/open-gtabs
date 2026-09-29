@@ -52,7 +52,10 @@ import {
 import { suggest, findDuplicates, inferTargetGroup, matchTabsToExistingGroups, truncateTitle } from './grouper';
 import type { ExtraHints } from './grouper';
 import { isAIEligible } from './privacy';
-import { completeWithUsage, fetchOllamaModels, isChromeAIAvailable, testConnection } from './llm';
+import { completeWithUsage, fetchOllamaModels, fetchTTSwitchModels, isChromeAIAvailable, testConnection } from './llm';
+
+import { CLEANUP_ALARM, previewCleanup, archiveAndClose, dismissCleanup, resetDismissals, listArchives, deleteArchive, restoreArchive, cleanupSummary, refreshCleanupReminder, setupCleanupAlarm } from './cleanup';
+import { initialReport, getReport, saveReport, type OrganizationReport } from './reports';
 
 const ALARM_NAME = 'gtabs-check';
 const REORG_ALARM_NAME = 'gtabs-reorg';
@@ -260,8 +263,8 @@ export async function getTabs(): Promise<TabInfo[]> {
     .map(t => ({ id: t.id!, title: t.title || '', url: t.url! }));
 }
 
-export async function snapshotCurrentState(): Promise<UndoSnapshot> {
-  const tabs = await chrome.tabs.query({ currentWindow: true });
+export async function snapshotCurrentState(targetWindowId?: number): Promise<UndoSnapshot> {
+  const tabs = await chrome.tabs.query(targetWindowId === undefined ? { currentWindow: true } : { windowId: targetWindowId });
   const groups: { tabId: number; groupId: number }[] = [];
   const ungrouped: number[] = [];
 
@@ -271,7 +274,7 @@ export async function snapshotCurrentState(): Promise<UndoSnapshot> {
     else ungrouped.push(t.id);
   }
 
-  const windowId = await getCurrentWindowId();
+  const windowId = targetWindowId ?? await getCurrentWindowId();
   const groupDetails = (await chrome.tabGroups.query({ windowId })).map(group => ({
     groupId: group.id, title: group.title || '', color: group.color as Color, collapsed: group.collapsed,
   }));
@@ -376,8 +379,10 @@ function rebuildContextMenus(): Promise<void> {
   return rebuild;
 }
 
-export async function organize(ungroupedOnly = false): Promise<{ suggestions?: GroupSuggestion[]; error?: string }> {
+export async function organize(ungroupedOnly = false, targetWindowId?: number): Promise<{ suggestions?: GroupSuggestion[]; error?: string; report?: OrganizationReport }> {
+  let report: OrganizationReport | undefined;
   try {
+    const windowId = targetWindowId ?? await getCurrentWindowId();
     const [settings, affinity, domainRules, history, weightedAffinity, corrections, rejections] = await Promise.all([
       getSettings(),
       getAffinity(),
@@ -388,30 +393,36 @@ export async function organize(ungroupedOnly = false): Promise<{ suggestions?: G
       getRejections(),
     ]);
 
-    let tabs = (await getTabs()).filter(tab => isAIEligible(tab.url, settings));
+    const allTabs = await chrome.tabs.query({ windowId });
+    const groupList = await chrome.tabGroups.query({ windowId });
+    report = initialReport(allTabs, groupList, settings, windowId, ungroupedOnly || settings.mergeMode);
+    const eligibleIds = new Set(report.items.filter(t => t.reason === 'unmatched').map(t => t.id));
+    let tabs = allTabs.filter(t => t.id !== undefined && eligibleIds.has(t.id)).map(t => ({ id: t.id!, title: t.title || '', url: t.url! }));
     let existingGroupNames: string[] = [];
 
     if (ungroupedOnly || settings.mergeMode) {
-      const allTabs = await chrome.tabs.query({ currentWindow: true });
       const groupedIds = new Set(allTabs.filter(isGroupedTab).map(t => t.id).filter((id): id is number => id !== undefined));
       tabs = tabs.filter(t => !groupedIds.has(t.id));
 
       // Collect existing group names for smart merge
       try {
-        const windowId = await getCurrentWindowId();
-        const groups = await chrome.tabGroups.query({ windowId });
+        const groups = groupList;
         const publicGroupIds = new Set(allTabs.filter(tab => tab.url && isAIEligible(tab.url, settings)).map(tab => tab.groupId));
         existingGroupNames = groups.filter(g => publicGroupIds.has(g.id)).map(g => g.title || '').filter(Boolean);
       } catch { /* ignore */ }
     }
 
-    if (tabs.length < 2) return { error: '至少需要 2 个符合隐私规则的标签才能整理' };
+    if (tabs.length < 2) {
+      report.items.forEach(t => { if (t.reason === 'unmatched') t.reason = 'insufficient'; });
+      await saveSuggestions(null); await saveReport(report);
+      return { error: '至少需要 2 个符合隐私规则的标签才能整理', report };
+    }
 
     // Check spending cap before any LLM calls
     if (settings.spendingCapUSD > 0) {
       const costs = await getCosts();
       if (costs.totalCost >= settings.spendingCapUSD) {
-        return { error: `已达到 $${settings.spendingCapUSD.toFixed(2)} 的估算费用上限，可在设置中调整。` };
+        throw new Error(`已达到 $${settings.spendingCapUSD.toFixed(2)} 的估算费用上限，可在设置中调整。`);
       }
     }
 
@@ -462,10 +473,13 @@ export async function organize(ungroupedOnly = false): Promise<{ suggestions?: G
 
     if (tabsForLLM.length === 0 && preMatched.length > 0) {
       const suggestions = preMatched;
-      await saveSuggestions(suggestions);
+      await chrome.storage.local.set({ suggestions, suggestionsWindowId: windowId });
       await chrome.action.setBadgeText({ text: String(suggestions.length) });
       await chrome.action.setBadgeBackgroundColor({ color: '#8ab4f8' });
-      return { suggestions };
+      const ids = new Set(suggestions.flatMap(g => g.tabs.map(t => t.id)));
+      report.items.forEach(t => { if (ids.has(t.id)) t.reason = 'suggested'; });
+      await saveReport(report);
+      return { suggestions, report };
     }
 
     const historyHint = summarizeHistory(history);
@@ -477,79 +491,86 @@ export async function organize(ungroupedOnly = false): Promise<{ suggestions?: G
     const allSuggestions = [...preMatched, ...result.suggestions];
 
     await recordModelUsage(result.inputTokens, result.outputTokens);
-    await saveSuggestions(allSuggestions);
+    await chrome.storage.local.set({ suggestions: allSuggestions, suggestionsWindowId: windowId });
     await chrome.action.setBadgeText({ text: String(allSuggestions.length) });
     await chrome.action.setBadgeBackgroundColor({ color: '#8ab4f8' });
 
-    return { suggestions: allSuggestions };
+    const ids = new Set(allSuggestions.flatMap(g => g.tabs.map(t => t.id)));
+    report.items.forEach(t => { if (ids.has(t.id)) t.reason = 'suggested'; });
+    await saveReport(report);
+    return { suggestions: allSuggestions, report };
   } catch (e) {
-    return { error: e instanceof Error ? e.message : '未知错误' };
+    if (report) {
+      report.items.forEach(t => { if (t.reason === 'unmatched') t.reason = 'failed'; });
+      await saveReport(report).catch(() => {});
+    }
+    await saveSuggestions(null).catch(() => {});
+    return { report, error: e instanceof Error ? e.message : '未知错误' };
   }
 }
 
-export async function applyGroups(suggestions: GroupSuggestion[]): Promise<void> {
-  const snapshot = await snapshotCurrentState();
+export async function applyGroups(suggestions: GroupSuggestion[], targetWindowId?: number): Promise<OrganizationReport> {
+  const windowId = targetWindowId ?? await getCurrentWindowId();
+  const snapshot = await snapshotCurrentState(windowId);
   await saveUndoSnapshot(snapshot);
-
   const settings = await getSettings();
-  const pinnedSet = new Set(settings.pinnedGroups);
-  const reusableGroups = new Map<string, number>();
-  if (settings.mergeMode) {
-    const windowId = await getCurrentWindowId();
-    for (const group of await chrome.tabGroups.query({ windowId })) {
-      if (group.title && !reusableGroups.has(group.title)) reusableGroups.set(group.title, group.id);
-    }
-  }
-
-  // If pinned groups exist, exclude their tabs from ungrouping
-  let pinnedTabIds = new Set<number>();
-  if (pinnedSet.size > 0) {
-    try {
-      const windowId = await getCurrentWindowId();
-      const existingGroups = await chrome.tabGroups.query({ windowId });
-      for (const g of existingGroups) {
-        if (g.title && pinnedSet.has(g.title)) {
-          const groupTabs = await chrome.tabs.query({ groupId: g.id });
-          for (const t of groupTabs) {
-            if (t.id !== undefined) pinnedTabIds.add(t.id);
-          }
-        }
-      }
-    } catch { /* ignore */ }
-  }
-
-  // Filter out suggestions targeting pinned groups and tabs in pinned groups
-  const filteredSuggestions = suggestions.filter(g => !pinnedSet.has(g.name));
-  const allTabIds = filteredSuggestions
-    .flatMap(g => g.tabs.map(t => t.id))
-    .filter(id => !pinnedTabIds.has(id));
-
-  try {
-    if (allTabIds.length > 0) {
-      await ungroupTabsSafe(allTabIds);
-    }
-  } catch { /* stale tab IDs during apply — expected */ }
-
+  const groups = await chrome.tabGroups.query({ windowId });
+  const tabs = await chrome.tabs.query({ windowId });
+  const report = await getReport(windowId) || initialReport(tabs, groups, settings, windowId, false);
+  report.phase = 'applied'; report.timestamp = Date.now();
+  report.items.forEach(t => { if (t.reason === 'suggested') t.reason = 'not-selected'; });
+  const setReason = (id: number, reason: OrganizationReport['items'][number]['reason']) => {
+    const item = report.items.find(t => t.id === id);
+    if (item) item.reason = reason;
+  };
+  const pinned = new Set(settings.pinnedGroups);
+  const lockedIds = new Set(groups.filter(g => pinned.has(g.title || '')).map(g => g.id));
+  const reusable = new Map<string, number>();
+  if (settings.mergeMode) for (const g of groups) if (g.title && !reusable.has(g.title)) reusable.set(g.title, g.id);
   const colorPrefs = await getGroupColorPrefs();
-
-  for (const group of filteredSuggestions) {
-    const tabIds = group.tabs.map(t => t.id).filter(id => !pinnedTabIds.has(id));
-    if (tabIds.length === 0) continue;
-    const existingGroupId = reusableGroups.get(group.name);
-    const groupId = await groupTabsSafe(tabIds, existingGroupId);
-    if (groupId === null) continue;
-    if (existingGroupId === undefined) {
-      const color = (group.name && colorPrefs[group.name]) || group.color;
-      await chrome.tabGroups.update(groupId, { title: group.name, color, collapsed: false });
-      if (settings.mergeMode) reusableGroups.set(group.name, groupId);
+  const applied: GroupSuggestion[] = [];
+  const seen = new Set<number>();
+  for (const suggestion of suggestions) {
+    const valid: TabInfo[] = [];
+    for (const tab of suggestion.tabs) {
+      if (seen.has(tab.id)) continue;
+      seen.add(tab.id);
+      if (pinned.has(suggestion.name)) { setReason(tab.id, 'protected'); continue; }
+      try {
+        const live = await chrome.tabs.get(tab.id);
+        if (live.windowId !== windowId || live.url !== tab.url) { setReason(tab.id, 'changed'); continue; }
+        if (lockedIds.has(live.groupId)) { setReason(tab.id, 'protected'); continue; }
+        valid.push(tab);
+      } catch { setReason(tab.id, 'changed'); }
     }
+    if (!valid.length) continue;
+    try {
+      const existingId = reusable.get(suggestion.name);
+      const groupId = await chrome.tabs.group({ tabIds: valid.map(t => t.id) as [number, ...number[]],
+        ...(existingId === undefined ? { createProperties: { windowId } } : { groupId: existingId }) });
+      if (existingId === undefined) {
+        await chrome.tabGroups.update(groupId, { title: suggestion.name, color: colorPrefs[suggestion.name] || suggestion.color, collapsed: false });
+        if (settings.mergeMode) reusable.set(suggestion.name, groupId);
+      }
+      const confirmed: TabInfo[] = [];
+      for (const tab of valid) {
+        try {
+          const live = await chrome.tabs.get(tab.id);
+          if (live.windowId === windowId && live.groupId === groupId) { confirmed.push(tab); setReason(tab.id, 'applied'); }
+          else setReason(tab.id, 'failed');
+        } catch { setReason(tab.id, 'changed'); }
+      }
+      if (confirmed.length) applied.push({ ...suggestion, tabs: confirmed });
+    } catch { valid.forEach(t => setReason(t.id, 'failed')); }
   }
-
-  await updateAffinity(filteredSuggestions);
-  await addHistory(filteredSuggestions);
-  await incrementStats(filteredSuggestions.reduce((sum, g) => sum + g.tabs.length, 0));
+  await updateAffinity(applied);
+  await addHistory(applied);
+  await incrementStats(applied.reduce((n, g) => n + g.tabs.length, 0));
   await saveSuggestions(null);
+  await saveReport(report);
   await chrome.action.setBadgeText({ text: '' });
+  void refreshCleanupReminder().catch(() => {});
+  return report;
 }
 
 export async function undoLastGrouping(): Promise<{ error?: string }> {
@@ -559,8 +580,7 @@ export async function undoLastGrouping(): Promise<{ error?: string }> {
   try {
     await restoreSnapshot(snapshot);
     await saveUndoSnapshot(null);
-
-
+    await chrome.storage.local.remove(`organizationReport:${snapshot.windowId ?? await getCurrentWindowId()}`);
     return {};
   } catch (e) {
     return { error: e instanceof Error ? e.message : '撤销失败' };
@@ -594,31 +614,8 @@ export async function consolidateWindows(): Promise<number> {
 
 
 export async function purgeStaleTabs(): Promise<number> {
-  const settings = await getSettings();
-  const thresholdMs = settings.staleTabThresholdHours * 60 * 60 * 1000;
-  const now = Date.now();
-  const tabs = await chrome.tabs.query({ currentWindow: true });
-
-  const toRemove = tabs
-    .filter(tab =>
-      tab.id !== undefined &&
-      isTabUrlAllowed(tab.url) &&
-      !tab.active &&
-      !tab.pinned &&
-      tab.lastAccessed != null && tab.lastAccessed > 0 &&
-      (now - tab.lastAccessed) > thresholdMs,
-    )
-    .map(tab => tab.id!);
-
-  if (toRemove.length) {
-    try {
-      await chrome.tabs.remove(toRemove);
-    } catch { /* some tabs may have been closed already */ }
-  }
-
-  return toRemove.length;
+  throw new Error('请在清理中心预览并勾选标签，再使用“归档并关闭”。');
 }
-
 
 
 export async function focusCurrentGroup(): Promise<number> {
@@ -880,24 +877,64 @@ async function checkAutoTrigger(): Promise<void> {
   if (tabs.length >= settings.threshold) {
     const result = await organize(true);
     if (result.suggestions?.length) {
-      await applyGroups(result.suggestions);
+      await applyGroups(result.suggestions, result.report?.windowId);
     }
   }
 }
 
 chrome.runtime.onMessage.addListener((msg: MessageType, _sender, sendResponse) => {
+  if (['fetch-tt-models', 'cleanup-preview', 'cleanup-close', 'cleanup-dismiss', 'cleanup-reset', 'cleanup-summary', 'archive-list', 'archive-restore', 'archive-delete', 'organization-report', 'manual-group-tab'].includes(msg.type)) {
+    (async () => {
+      const windowId = _sender.tab?.windowId ?? await getCurrentWindowId();
+      switch (msg.type) {
+        case 'fetch-tt-models': return { models: await fetchTTSwitchModels(await getSettings()) };
+        case 'cleanup-preview': return { preview: await previewCleanup(windowId) };
+        case 'cleanup-close': return { cleanup: await archiveAndClose(msg.previewId, windowId, msg.tabIds) };
+        case 'cleanup-dismiss': await dismissCleanup(msg.previewId, windowId, msg.tabIds, msg.forever); return {};
+        case 'cleanup-reset': await resetDismissals(); return {};
+        case 'cleanup-summary': return { summary: await cleanupSummary(windowId) };
+        case 'archive-list': return { archives: await listArchives() };
+        case 'archive-restore': return { restored: await restoreArchive(msg.archiveId, windowId, msg.entryIds) };
+        case 'archive-delete': await deleteArchive(msg.archiveId); return {};
+        case 'organization-report': return { report: await getReport(windowId) };
+        case 'manual-group-tab': {
+          const tab = await chrome.tabs.get(msg.tabId);
+          if (tab.windowId !== windowId || !/^https?:\/\//.test(tab.url || '')) throw new Error('标签已变化，请重新整理。');
+          const name = msg.groupName.trim().slice(0, 80);
+          if (!name) throw new Error('请输入分组名称');
+          const settings = await getSettings();
+          const groups = await chrome.tabGroups.query({ windowId });
+          if (settings.pinnedGroups.includes(name) || groups.some(g => g.id === tab.groupId && settings.pinnedGroups.includes(g.title || ''))) throw new Error('该分组已锁定，请先在设置中解除锁定。');
+          const existing = groups.find(g => g.title === name);
+          const id = await chrome.tabs.group({ tabIds: [msg.tabId], ...(existing ? { groupId: existing.id } : { createProperties: { windowId } }) });
+          if (!existing) await chrome.tabGroups.update(id, { title: name, color: 'grey' });
+          const report = await getReport(windowId);
+          const item = report?.items.find(t => t.id === msg.tabId);
+          if (report && item) { item.reason = 'applied'; await saveReport(report); }
+          return { report };
+        }
+      }
+    })().then(result => sendResponse({ status: 'done', ...result })).catch(e => sendResponse({ status: 'error', error: e instanceof Error ? e.message : '操作失败，请重试' }));
+    return true;
+  }
+
   if (msg.type === 'organize') {
-    organize().then(r => sendResponse({ type: 'status', status: r.error ? 'error' : 'done', ...r }));
+    organize(false, _sender.tab?.windowId).then(r => sendResponse({ type: 'status', status: r.error ? 'error' : 'done', ...r }));
     return true;
   }
 
   if (msg.type === 'organize-ungrouped') {
-    organize(true).then(r => sendResponse({ type: 'status', status: r.error ? 'error' : 'done', ...r }));
+    organize(true, _sender.tab?.windowId).then(r => sendResponse({ type: 'status', status: r.error ? 'error' : 'done', ...r }));
     return true;
   }
 
   if (msg.type === 'apply') {
-    applyGroups(msg.suggestions).then(() => sendResponse({ type: 'status', status: 'applied' }));
+    (async () => {
+      const windowId = _sender.tab?.windowId ?? await getCurrentWindowId();
+      const saved = await chrome.storage.local.get('suggestionsWindowId');
+      if (saved.suggestionsWindowId !== windowId) throw new Error('分组建议来自其他窗口或已过期，请在当前窗口重新整理。');
+      return applyGroups(msg.suggestions, windowId);
+    })().then(report => sendResponse({ type: 'status', status: 'applied', report })).catch(e => sendResponse({ type: 'status', status: 'error', error: e.message }));
     return true;
   }
 
@@ -1162,6 +1199,7 @@ chrome.commands?.onCommand?.addListener((command: string) => {
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create(ALARM_NAME, { periodInMinutes: 2 });
+  void setupCleanupAlarm().then(refreshCleanupReminder).catch(() => {});
   setupReorgAlarm();
   return rebuildContextMenus();
 });
@@ -1198,13 +1236,20 @@ chrome.tabGroups?.onUpdated?.addListener((group) => {
   }
 });
 
+chrome.windows.onRemoved?.addListener(windowId => {
+  void chrome.storage.local.remove(`organizationReport:${windowId}`).catch(() => {});
+});
+
+chrome.runtime.onStartup?.addListener(() => { void setupCleanupAlarm().then(refreshCleanupReminder).catch(() => {}); });
+
 chrome.alarms.onAlarm.addListener(alarm => {
+  if (alarm.name === CLEANUP_ALARM) void refreshCleanupReminder().catch(() => {});
   if (alarm.name === ALARM_NAME) triggerAutoCheck();
   if (alarm.name === REORG_ALARM_NAME) {
     getSettings().then(settings => {
       if (settings.reorgSchedule !== 'off') {
         organize(settings.mergeMode).then(result => {
-          if (result.suggestions?.length) applyGroups(result.suggestions);
+          if (result.suggestions?.length) applyGroups(result.suggestions, result.report?.windowId);
         });
       }
     });
@@ -1279,6 +1324,7 @@ chrome.tabs.onActivated?.addListener((activeInfo: { tabId: number }) => {
 chrome.storage?.onChanged?.addListener((changes, areaName) => {
   if (areaName === 'local' && changes.settings) {
     setupReorgAlarm();
+    void setupCleanupAlarm().then(refreshCleanupReminder).catch(() => {});
   }
 });
 

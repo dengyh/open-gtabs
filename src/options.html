@@ -106,7 +106,7 @@
   .form-group:last-child { margin-bottom: 0; }
   label { display: block; font-size: 12px; font-weight: 600; color: #9aa0b8; margin-bottom: 6px; }
   label a { color: var(--accent); text-decoration: none; margin-left: 6px; }
-  input[type="text"], input[type="password"], input[type="number"], select {
+  input[type="search"], input[type="text"], input[type="password"], input[type="number"], select {
     width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--border);
     border-radius: 9px; color: var(--text); padding: 9px 13px; font-size: 13px;
     font-family: var(--font-body); transition: all 0.18s;
@@ -213,6 +213,16 @@
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
   }
+
+  .cleanup-actions { display:flex; gap:8px; flex-wrap:wrap; margin:14px 0; }
+  .cleanup-row { display:flex; gap:12px; align-items:flex-start; padding:12px 0; border-bottom:1px solid var(--border); }
+  .cleanup-row input { margin-top:4px; flex-shrink:0; }
+  .cleanup-info { flex:1; min-width:0; overflow-wrap:anywhere; }
+  .cleanup-info strong { display:block; color:var(--text); font-size:13px; }
+  .cleanup-info small { display:block; color:var(--text-secondary,#9aa0a6); margin-top:5px; }
+  .archive-card { border:1px solid var(--border); border-radius:10px; padding:14px; margin:12px 0; }
+  #cleanup-status, #archive-status { min-height:24px; color:#b7aaff; }
+  [hidden] { display:none !important; }
 </style>
 </head>
 <body>
@@ -229,6 +239,8 @@
     <button class="tab-btn" data-tab="behavior">⚙️ 整理方式</button>
     <button class="tab-btn" data-tab="rules">🔒 分组规则</button>
     <button class="tab-btn" data-tab="tools">⚡ 实用工具</button>
+    <button class="tab-btn" data-tab="cleanup">🧹 清理</button>
+    <button class="tab-btn" data-tab="archives">🗃️ 归档</button>
   </div>
 
   <!-- ═══ TAB: Provider ═══ -->
@@ -255,12 +267,12 @@
       <div class="form-group hidden" id="custom-endpoint-row">
         <label for="base-url">TT Switch 接口地址</label>
         <input type="text" id="base-url" placeholder="http://127.0.0.1:15721/tencent/v1" />
-        <label for="custom-model" style="margin-top:12px">模型 ID</label>
+        <label for="custom-model" style="margin-top:12px">当前模型 ID（也可手动填写）</label>
         <input type="text" id="custom-model" placeholder="gemini-3.5-flash" />
         <div class="slider-desc" style="margin-top:6px">API Token 填 TT Switch → 通用 API → 腾讯内网通用服务的 API Token。标题和网址会经 TT Switch 发给所选模型。密钥以本地明文存储，不通过 Chrome 同步。网址参数、片段和账号密码不会发送；标题和路径仍可能包含敏感内容。</div>
       </div>
       <div class="form-row" style="margin-top:14px">
-        <div class="form-group" id="model-select-row"><label for="model-select">模型</label><select id="model-select"></select></div>
+        <div class="form-group" id="model-select-row"><label for="model-select">模型</label><select id="model-select" aria-label="选择模型"></select><button class="btn-ghost btn-sm" id="refresh-models" type="button" hidden>刷新 TT Switch 模型</button><p class="slider-desc" id="models-status" role="status"></p></div>
         <div class="form-action" style="display:flex;align-items:center;gap:8px">
           <button class="btn btn-sm" id="test-btn">测试连接</button>
           <span class="test-result" id="test-result"></span>
@@ -383,7 +395,9 @@
       <div class="section-header"><div class="section-icon">📊</div><h2>数据与用量</h2></div>
       <div class="slider-group">
         <div class="slider-header"><div><div class="slider-label">闲置标签时长（小时）</div><div class="slider-desc">超过此时长的标签可作为闲置标签处理</div></div><span class="slider-val" id="staleVal">48</span></div>
-        <input type="range" id="staleTabThresholdHours" min="1" max="168" value="48" />
+        <input type="range" id="staleTabThresholdHours" min="1" max="720" value="48" />
+        <div class="form-row"><button class="btn-ghost btn-sm stale-preset" data-hours="168">7 天</button><button class="btn-ghost btn-sm stale-preset" data-hours="336">14 天</button><button class="btn-ghost btn-sm stale-preset" data-hours="720">30 天</button></div>
+        <label><input type="checkbox" id="cleanup-reminder" /> 每小时检查闲置标签，并在插件内提示</label>
       </div>
       <div class="slider-group" style="margin-bottom:20px">
         <div class="slider-header"><div><div class="slider-label">估算费用上限（美元）</div><div class="slider-desc">仅针对已知定价的估算；不代表 TT Switch 实际额度。0 为不限。</div></div><span class="slider-val" id="spendingCapVal">0</span></div>
@@ -404,6 +418,24 @@
     </div>
   </div>
 
+  <div class="tab-panel" data-tab="cleanup">
+    <div class="section">
+      <div class="section-header"><h2>闲置标签清理</h2></div>
+      <p class="slider-desc">仅检查此设置页所在窗口。跳过正在查看、固定、锁定分组、播放音频及加载中的页面。闲置时长可在“工具”页调整。</p>
+      <p class="slider-desc">先归档，再关闭你勾选的标签。归档可重新打开网址，不会保存未提交的表单或页面登录状态。所有记录只保存在本机。</p>
+      <div class="cleanup-actions"><button class="btn-ghost" id="cleanup-refresh">刷新列表</button><button class="btn-ghost" id="cleanup-select-all">全选 / 取消</button><button class="btn-ghost" id="cleanup-close">归档并关闭所选</button><button class="btn-ghost" id="cleanup-later">7 天后提醒</button><button class="btn-ghost" id="cleanup-keep">保留，不再提醒</button></div>
+      <div id="cleanup-status" role="status"></div><div id="cleanup-list"></div>
+      <button class="btn-ghost btn-sm" id="cleanup-reset">重置保留与稍后提醒记录</button>
+    </div>
+  </div>
+  <div class="tab-panel" data-tab="archives">
+    <div class="section">
+      <div class="section-header"><h2>归档与找回</h2></div>
+      <p class="slider-desc">归档不会自动删除。重新打开到当前窗口，并跳过已经打开的相同网址；原有标签不会被移动。删除归档不会关闭标签。</p>
+      <div class="cleanup-actions"><input id="archive-search" type="search" placeholder="搜索标题、网址或分组…" aria-label="搜索归档" /><button class="btn-ghost" id="archive-refresh">刷新归档</button></div>
+      <div id="archive-status" role="status"></div><div id="archive-list"></div>
+    </div>
+  </div>
 </div>
 <script src="options.js"></script>
 </body>

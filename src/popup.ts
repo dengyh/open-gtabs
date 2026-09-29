@@ -1,3 +1,4 @@
+import { REASON_LABELS, type OrganizationReport } from './reports';
 import type { MessageType } from './types';
 import type { Color, GroupSuggestion, TabInfo, CorrectionEntry, RejectionEntry } from './types';
 import { COLORS, COLOR_LABELS } from './types';
@@ -273,6 +274,7 @@ async function doOrganize(ungroupedOnly: boolean) {
 
   btnOrganize.disabled = false;
   btnOrganizeUngrouped.disabled = false;
+  renderReport(res?.report);
 
   if (!res) {
     setStatus('未收到响应，请重试', true);
@@ -299,9 +301,12 @@ btnApply.addEventListener('click', async () => {
     sendMsg({ type: 'record-corrections', corrections: { timestamp: Date.now(), corrections } });
   }
 
-  await sendMsg({ type: 'apply', suggestions: currentSuggestions });
-  setStatus('已应用！');
+  const res = await sendMsg({ type: 'apply', suggestions: currentSuggestions });
   btnApply.disabled = false;
+  if (!res || res.error) { setStatus(res?.error || '未收到响应，请重试', true); return; }
+  const count = res.report?.items.filter(t => t.reason === 'applied').length;
+  setStatus(count === undefined ? '已应用！' : `已归组 ${count} 个标签，其余原因见下方。`);
+  renderReport(res.report);
   clearSuggestionUi();
   await refreshFooter();
 });
@@ -310,6 +315,7 @@ btnUndo.addEventListener('click', async () => {
   setStatus('正在撤销…');
   const res = await sendMsg({ type: 'undo' });
   setStatus(res?.error ? res.error : '已撤销！', Boolean(res?.error));
+  if (res && !res.error) renderReport(null);
 });
 
 btnSettings.addEventListener('click', () => {
@@ -333,13 +339,47 @@ async function refreshFooter() {
   }
 }
 
+function renderReport(report?: OrganizationReport | null) {
+  const wrapper = $('organization-report');
+  if (!wrapper) return;
+  wrapper.hidden = !report;
+  if (!report) return;
+  const counts = new Map<string, number>();
+  for (const item of report.items) counts.set(item.reason, (counts.get(item.reason) || 0) + 1);
+  $('report-summary').textContent = `${report.phase === 'applied' ? '上次整理结果' : '整理说明'} · ${report.items.length} 个标签 · ${counts.get('applied') || 0} 个已归组 · ${counts.get('suggested') || 0} 个待应用`;
+  const items = report.items.filter(t => t.reason !== 'applied' && t.reason !== 'suggested');
+  $('report-items').innerHTML = items.map(t => `<div class="report-item">${esc(t.title)}<small>${esc(REASON_LABELS[t.reason])}</small>${['excluded','private','insufficient','unmatched','failed','not-selected'].includes(t.reason) ? `<input class="manual-name" data-id="${t.id}" placeholder="分组名称" aria-label="${esc(t.title)}的目标分组" /><button class="btn-ghost manual-group" data-id="${t.id}">本地归组</button>` : ''}</div>`).join('') || '<p>没有其他未处理标签。</p>';
+  wrapper.querySelectorAll<HTMLButtonElement>('.manual-group').forEach(button => button.addEventListener('click', async () => {
+    const groupName = wrapper.querySelector<HTMLInputElement>(`.manual-name[data-id="${button.dataset.id}"]`)?.value.trim();
+    if (!groupName) { setStatus('请输入目标分组名称', true); return; }
+    button.disabled = true;
+    const res = await sendMsg({ type: 'manual-group-tab', tabId: Number(button.dataset.id), groupName });
+    button.disabled = false;
+    setStatus(res?.error || '已在本机归组，未调用模型。', !!res?.error);
+    if (res?.report) renderReport(res.report);
+  }));
+}
+$('report-rules')?.addEventListener('click', () => chrome.runtime.openOptionsPage());
+$('cleanup-notice')?.addEventListener('click', () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('options.html#cleanup') });
+});
+async function refreshNotice() {
+  const res = await sendMsg({ type: 'cleanup-summary' });
+  const notice = $('cleanup-notice');
+  if (notice) { notice.hidden = !res?.summary?.count; notice.textContent = `${res?.summary?.count || 0} 个闲置标签可检查 · 打开清理中心`; }
+}
 // --- Init ---
 
 (async () => {
   const pending = await getSuggestions();
-  if (pending?.length) {
+  const currentWindow = await chrome.windows.getCurrent();
+  const scope = await chrome.storage.local.get('suggestionsWindowId');
+  if (pending?.length && (scope.suggestionsWindowId === undefined || scope.suggestionsWindowId === currentWindow.id)) {
     setStatus(`${pending.length} 个待确认分组`);
     renderSuggestions(pending);
   }
   await refreshFooter();
+  const res = await sendMsg({ type: 'organization-report' });
+  renderReport(res?.report);
+  await refreshNotice();
 })();

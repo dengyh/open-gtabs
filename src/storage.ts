@@ -81,6 +81,7 @@ function sanitizeSettings(input: Partial<Settings>): Settings {
     silentAutoAdd: Boolean(s.silentAutoAdd),
     autoPinApps: Boolean(s.autoPinApps),
     staleTabThresholdHours: clampNumber(s.staleTabThresholdHours, DEFAULT_SETTINGS.staleTabThresholdHours, 1, 24 * 30),
+    cleanupReminder: s.cleanupReminder !== false,
     enableCorrectionTracking: Boolean(s.enableCorrectionTracking),
     enableRejectionMemory: Boolean(s.enableRejectionMemory),
     enableGroupDrift: Boolean(s.enableGroupDrift),

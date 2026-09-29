@@ -1,3 +1,4 @@
+import { initCleanupUI } from './cleanup-ui';
 import type { MessageType } from './types';
 import type { Settings, DomainRule, Color, ProviderPreset } from './types';
 import { DEFAULT_SETTINGS, PROVIDERS, COLORS, COLOR_LABELS } from './types';
@@ -16,7 +17,7 @@ document.querySelectorAll<HTMLButtonElement>('.tab-btn').forEach(btn => {
 });
 // Restore last tab
 try {
-  const saved = localStorage.getItem('gtabs-settings-tab');
+  const saved = ['cleanup', 'archives'].includes(location.hash.slice(1)) ? location.hash.slice(1) : localStorage.getItem('gtabs-settings-tab');
   if (saved) (document.querySelector(`.tab-btn[data-tab="${saved}"]`) as HTMLButtonElement)?.click();
 } catch { /* ignore */ }
 
@@ -73,6 +74,10 @@ const costTable = $<HTMLTableElement>('cost-table');
 const costBody = $<HTMLTableSectionElement>('cost-body');
 
 let currentProvider: ProviderPreset | null = null;
+let modelRequest = 0;
+const modelStatus = $('models-status');
+const refreshModelsButton = $<HTMLButtonElement>('refresh-models');
+const cleanupReminderInput = $<HTMLInputElement>('cleanup-reminder');
 
 function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -135,7 +140,11 @@ function selectProvider(p: ProviderPreset) {
   // Update UI
   renderProviderCards(p.id);
   customEndpointRow.classList.toggle('hidden', !p.customEndpoint);
-  modelSelectRow.classList.toggle('hidden', !!p.customEndpoint);
+  modelSelectRow.classList.remove('hidden');
+  refreshModelsButton.hidden = p.id !== 'tt-switch';
+  refreshModelsButton.disabled = false;
+  modelStatus.textContent = '';
+  modelRequest++;
   inBaseUrl.value = p.baseUrl;
   inCustomModel.value = p.models[0] || '';
 
@@ -156,7 +165,7 @@ function selectProvider(p: ProviderPreset) {
     fetchOllamaModels();
   }
 
-  save();
+  void save();
 }
 
 function populateModels(models: string[]) {
@@ -190,6 +199,44 @@ async function fetchOllamaModels() {
   }
 }
 
+async function refreshTTModels(persist = true) {
+  if (currentProvider?.id !== 'tt-switch') return;
+  const request = ++modelRequest;
+  const endpoint = inBaseUrl.value;
+  const key = inApiKey.value;
+  if (persist) await save();
+  refreshModelsButton.disabled = true;
+  modelStatus.textContent = '正在读取 TT Switch 模型列表…';
+  try {
+    const res = await sendMsg({ type: 'fetch-tt-models' });
+    if (request !== modelRequest || currentProvider?.id !== 'tt-switch' || endpoint !== inBaseUrl.value || key !== inApiKey.value) return;
+    if (!res?.models?.length) throw new Error(res?.error || '未获得模型列表，当前模型保持不变，可手动填写。');
+    const selected = inCustomModel.value.trim();
+    populateModels([...new Set([selected, ...res.models].filter(Boolean))]);
+    modelSelect.value = selected;
+    modelStatus.textContent = `已读取 ${res.models.length} 个模型。列表不代表当前账号一定有调用权限；可测试连接。`;
+  } catch (e) {
+    if (request === modelRequest) modelStatus.textContent = e instanceof Error ? e.message : '模型列表读取失败，当前模型保持不变。';
+  } finally { if (request === modelRequest) refreshModelsButton.disabled = false; }
+}
+refreshModelsButton.addEventListener('click', () => { void refreshTTModels(); });
+modelSelect.addEventListener('change', () => {
+  if (currentProvider?.id === 'tt-switch') inCustomModel.value = modelSelect.value;
+});
+inCustomModel.addEventListener('change', () => {
+  if (currentProvider?.id !== 'tt-switch') return;
+  const value = inCustomModel.value.trim();
+  if (value && !Array.from(modelSelect.options).some(o => o.value === value)) modelSelect.add(new Option(value, value));
+  modelSelect.value = value;
+});
+for (const input of [inBaseUrl, inApiKey]) input.addEventListener('input', () => {
+  modelRequest++; refreshModelsButton.disabled = false;
+  if (currentProvider?.id === 'tt-switch') {
+    populateModels(inCustomModel.value.trim() ? [inCustomModel.value.trim()] : []);
+    modelStatus.textContent = '连接配置已变化，保存后可刷新模型列表。';
+  }
+});
+
 // --- Save ---
 
 async function save() {
@@ -218,6 +265,7 @@ async function save() {
     silentAutoAdd: inSilentAutoAdd.checked,
     autoPinApps: inAutoPinApps.checked,
     staleTabThresholdHours: Number(inStaleTabThresholdHours.value) || DEFAULT_SETTINGS.staleTabThresholdHours,
+    cleanupReminder: cleanupReminderInput.checked,
     enableCorrectionTracking: inEnableCorrectionTracking.checked,
     enableRejectionMemory: inEnableRejectionMemory.checked,
     enableGroupDrift: inEnableGroupDrift.checked,
@@ -253,7 +301,11 @@ async function load() {
 
   renderProviderCards(p.id);
   customEndpointRow.classList.toggle('hidden', !p.customEndpoint);
-  modelSelectRow.classList.toggle('hidden', !!p.customEndpoint);
+  modelSelectRow.classList.remove('hidden');
+  refreshModelsButton.hidden = p.id !== 'tt-switch';
+  refreshModelsButton.disabled = false;
+  modelStatus.textContent = '';
+  modelRequest++;
   inBaseUrl.value = s.baseUrl || p.baseUrl;
   inCustomModel.value = s.model;
   if (p.isBuiltIn && !chromeAIAvailable) showChromeAISetup();
@@ -290,6 +342,7 @@ async function load() {
   inAutoPinApps.checked = s.autoPinApps;
   inSmartUngroup.checked = s.smartUngroup;
   
+  cleanupReminderInput.checked = s.cleanupReminder;
   inStaleTabThresholdHours.value = String(s.staleTabThresholdHours);
   outStale.textContent = String(s.staleTabThresholdHours);
   inSpendingCapUSD.value = String(s.spendingCapUSD);
@@ -316,6 +369,11 @@ async function load() {
 
   // Stats & costs
   await refreshData();
+  if (p.id === 'tt-switch') {
+    populateModels([...new Set([s.model, ...p.models].filter(Boolean))]);
+    modelSelect.value = s.model;
+    if (s.apiKey) void refreshTTModels(false);
+  }
 }
 
 // --- Test Connection ---
@@ -538,7 +596,7 @@ for (const b of rangeBindings) {
 }
 
 const autoSaveElements = [
-  inExcludePrivateHosts, inExcludedDomains, inApiKey, modelSelect, inBaseUrl, inCustomModel, inMaxGroups, inMaxTitleLength, inAutoTrigger, inThreshold,
+  cleanupReminderInput, inExcludePrivateHosts, inExcludedDomains, inApiKey, modelSelect, inBaseUrl, inCustomModel, inMaxGroups, inMaxTitleLength, inAutoTrigger, inThreshold,
   inMergeMode, inSilentAutoAdd, inAutoPinApps, inSmartUngroup, inStaleTabThresholdHours,
   inSpendingCapUSD,
   inEnableCorrectionTracking, inEnableRejectionMemory, inEnableGroupDrift,
@@ -710,6 +768,12 @@ document.getElementById('chrome-ai-skip-btn')?.addEventListener('click', () => {
   selectProvider(groq);
 });
 
+document.querySelectorAll<HTMLButtonElement>('.stale-preset').forEach(button => button.addEventListener('click', () => {
+  inStaleTabThresholdHours.value = button.dataset.hours!;
+  outStale.textContent = inStaleTabThresholdHours.value;
+  void save();
+}));
+initCleanupUI();
 // --- Init ---
 load();
 refreshToolWorkspaces();

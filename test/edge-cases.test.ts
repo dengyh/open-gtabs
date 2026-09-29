@@ -462,6 +462,7 @@ describe('applyGroups – edge cases', () => {
   });
 
   it('uses color preferences over suggestion color', async () => {
+    vi.mocked(chrome.tabs.query).mockResolvedValue([{ id: 1, url: 'https://github.com', groupId: -1 }] as any);
     // Pre-save a color preference
     const { saveGroupColorPref } = await import('../src/storage');
     await saveGroupColorPref('Dev', 'purple');
@@ -480,6 +481,7 @@ describe('applyGroups – edge cases', () => {
   });
 
   it('skips pinned group suggestions', async () => {
+    vi.mocked(chrome.tabs.query).mockResolvedValue([{ id: 1, url: 'https://pinned.com', groupId: -1 }, { id: 2, url: 'https://normal.com', groupId: -1 }] as any);
     const { saveSettings } = await import('../src/storage');
     await saveSettings({ ...DEFAULT_SETTINGS, pinnedGroups: ['Pinned'] });
 

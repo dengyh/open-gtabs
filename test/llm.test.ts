@@ -274,3 +274,23 @@ describe('Chrome AI', () => {
     delete (globalThis as any).LanguageModel;
   });
 });
+
+describe('TT Switch model discovery', () => {
+  const config = { provider: 'tt-switch', baseUrl: 'http://127.0.0.1:15721/tencent/v1', apiKey: 'fixture-token', model: 'selected' };
+  it('reads real IDs using authentication, without sending browsing information', async () => {
+    const { fetchTTSwitchModels } = await import('../src/llm');
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ data: [{ id: 'b' }, { id: 'a' }, { id: 'b' }, { id: 3 }, null] })));
+    expect(await fetchTTSwitchModels(config)).toEqual(['a', 'b']);
+    expect(fetch).toHaveBeenCalledWith(config.baseUrl + '/models', expect.objectContaining({ method: 'GET', redirect: 'error', headers: { Authorization: 'Bearer fixture-token' } }));
+    expect(vi.mocked(fetch).mock.calls[0][1]?.body).toBeUndefined();
+  });
+  it.each(['https://evil.example/tencent/v1', 'http://127.0.0.1:15721/v1', 'http://user:pass@localhost/tencent/v1'])('rejects unsafe address %s before sending the credential', async baseUrl => {
+    const { fetchTTSwitchModels } = await import('../src/llm');
+    await expect(fetchTTSwitchModels({ ...config, baseUrl })).rejects.toThrow(); expect(fetch).not.toHaveBeenCalled();
+  });
+  it('does not expose raw server errors', async () => {
+    const { fetchTTSwitchModels } = await import('../src/llm');
+    vi.mocked(fetch).mockResolvedValue(new Response('sensitive upstream body', { status: 401 }));
+    await expect(fetchTTSwitchModels(config)).rejects.toThrow('HTTP 401');
+  });
+});

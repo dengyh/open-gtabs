@@ -22,7 +22,7 @@ function makeStorage(store: Record<string, unknown>) {
       return Promise.resolve();
     }),
     set: vi.fn((items: Record<string, unknown>) => {
-      Object.assign(store, items);
+      Object.assign(store, structuredClone(items));
       return Promise.resolve();
     }),
   };
@@ -47,8 +47,13 @@ export function resetStores() {
 export function resetAllMocks() {
   resetStores();
   groupIdCounter = 100;
+  groupedTabs.clear();
   vi.mocked(chrome.tabs.query).mockReset().mockResolvedValue([]);
-  vi.mocked(chrome.tabs.group).mockReset().mockResolvedValue(100);
+  vi.mocked(chrome.tabs.group).mockReset().mockImplementation(async (options: any) => {
+    const id = options.groupId ?? 100;
+    for (const tabId of Array.isArray(options.tabIds) ? options.tabIds : [options.tabIds]) groupedTabs.set(tabId, id);
+    return id;
+  });
   vi.mocked(chrome.tabs.ungroup).mockReset().mockResolvedValue(undefined);
   vi.mocked(chrome.tabs.create).mockReset().mockImplementation(async (createProperties: any) => ({
     id: groupIdCounter++,
@@ -67,9 +72,10 @@ export function resetAllMocks() {
   }) as any);
   vi.mocked(chrome.tabs.discard).mockReset().mockResolvedValue(undefined as any);
   vi.mocked(chrome.tabs.remove).mockReset().mockResolvedValue(undefined as any);
-  vi.mocked(chrome.tabs.get).mockReset().mockImplementation(async (tabId: number) => ({
-    id: tabId, groupId: -1, windowId: 1,
-  }) as any);
+  vi.mocked(chrome.tabs.get).mockReset().mockImplementation(async (tabId: number) => {
+    const tab = (await chrome.tabs.query({})).find(t => t.id === tabId);
+    return { id: tabId, windowId: 1, groupId: -1, ...tab, ...(groupedTabs.has(tabId) ? { groupId: groupedTabs.get(tabId) } : {}) } as any;
+  });
   vi.mocked(chrome.tabGroups.query).mockReset().mockResolvedValue([]);
   vi.mocked(chrome.tabGroups.update).mockReset().mockResolvedValue(undefined as any);
   vi.mocked(chrome.windows.getCurrent).mockReset().mockResolvedValue({ id: 1 } as any);
@@ -97,6 +103,7 @@ export function resetAllMocks() {
   vi.mocked(fetch).mockReset();
 }
 
+const groupedTabs = new Map<number, number>();
 let groupIdCounter = 100;
 
 (globalThis as any).chrome = {

@@ -29,6 +29,8 @@ npm run package
 | `src/grouper.ts` | 规则预分配、中文标题匹配、模型提示、JSON 校验、遗漏标签处理 |
 | `src/privacy.ts` | AI 站点排除、内网主机判断、网址脱敏 |
 | `src/llm.ts` | 本机地址校验、请求超时、拒绝重定向、TT Switch / Ollama / Chrome AI |
+| `src/cleanup.ts` / `src/cleanup-ui.ts` | 闲置预览、保护判断、归档持久化、关闭复核、恢复及界面 |
+| `src/reports.ts` | 按窗口保存整理结果及原因 |
 | `src/storage.ts` | 本地存储、旧版同步迁移、导入导出和 Token 隔离 |
 | `src/types.ts` | 数据结构、默认设置、模型预设、颜色中文名称 |
 | `src/options.*` | 中文设置界面与自动保存 |
@@ -40,7 +42,7 @@ npm run package
 
 ## 常见改动
 
-- **换 TT Switch 模型**：直接在设置页填写模型 ID，无需改源码。只有改变协议 / 服务路由时才改 `llm.ts`。
+- **换 TT Switch 模型**：直接在设置页刷新模型列表并选择，也可填写模型 ID，无需改源码。只有改变协议 / 服务路由时才改 `llm.ts`。
 - **调整中文文案**：修改 `options.html`、`popup.html` 和对应 TypeScript 的可见文案，不要翻译消息类型、颜色协议值或模型 ID。
 - **调整分组策略**：修改 `grouper.ts`，保留合法标签 ID 校验、每标签只分配一次和安全过滤。模型输出不能变成可执行脚本。
 - **扩展服务商**：本版故意限制本机服务。新增外部服务必须同时评估 `manifest.json` 的主机权限 / CSP、`llm.ts` 校验、Token 归属和数据发送提示，不能仅放开地址输入框。
@@ -50,6 +52,10 @@ npm run package
 ## 验证
 
 提交前运行类型检查、测试、构建和 `npm audit`。浏览器体验使用独立测试窗口与公开页面；避免拿工作内网标签作为模型联调样本。检查 Token 不在 Git diff、日志或导出中。UI 验证至少覆盖中文设置、连接成功、分组建议、应用、已有组复用与撤销。
+
+### 隔离界面夹具
+
+`test/fixtures/browser-ui.ts` 将真实设置界面和后台代码接到模拟 Chrome 标签。可用 esbuild 打包为页面脚本，并在仅绑定 127.0.0.1 的临时服务器中打开，用于检查清理和恢复交互；它不会操作真实浏览器标签。自动化检查仍使用 `npm test`，实际 Chrome API 和 TT Switch 连接需独立联调。
 
 ## 上游同步
 
