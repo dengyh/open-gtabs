@@ -26,7 +26,7 @@ describe('Popup Page', () => {
     for (let i = 0; i < 15; i++) await new Promise(r => process.nextTick(r));
 
     // Verify initial load processed pending suggestions
-    expect(document.getElementById('status')?.textContent).toContain('1 pending');
+    expect(document.getElementById('status')?.textContent).toContain('1 个待确认');
     expect((document.getElementById('apply-all') as HTMLButtonElement).hidden).toBe(false);
 
     // Organize Button
@@ -50,7 +50,7 @@ describe('Popup Page', () => {
     const btnUndo = document.getElementById('undo') as HTMLButtonElement;
     btnUndo.click();
     for (let i = 0; i < 5; i++) await new Promise(r => process.nextTick(r));
-    expect(document.getElementById('status')?.textContent).toContain('Undone!');
+    expect(document.getElementById('status')?.textContent).toContain('已撤销！');
 
     // Settings
     const btnSettings = document.getElementById('open-settings') as HTMLButtonElement;
@@ -66,7 +66,7 @@ describe('Popup Page', () => {
     (chrome.runtime.sendMessage as any).mockImplementationOnce((_msg: any, cb: Function) => cb(undefined));
     btnOrganize.click();
     for (let i = 0; i < 10; i++) await new Promise(r => process.nextTick(r));
-    expect(document.getElementById('status')?.textContent).toBe('No response — try again');
+    expect(document.getElementById('status')?.textContent).toBe('未收到响应，请重试');
 
     // Error handling — error response
     (chrome.runtime.sendMessage as any).mockImplementationOnce((_msg: any, cb: Function) => cb({ error: 'API Failed' }));

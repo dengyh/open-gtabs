@@ -1,16 +1,20 @@
 {
   "manifest_version": 3,
-  "name": "gTabs - AI Tab Organizer",
-  "version": "0.5.1",
-  "description": "One-click AI tab organizer with editable suggestions, undo, and local or cloud LLM support",
-  "permissions": ["tabs", "tabGroups", "storage", "alarms", "contextMenus", "windows"],
+  "name": "gTabs 中文版 · TT Switch",
+  "version": "0.5.1.2",
+  "version_name": "0.5.1.2 中文安全适配版",
+  "description": "使用本机 TT Switch、Ollama 或 Chrome 内置 AI 整理标签页，支持分组预览、撤销、站点排除和网址脱敏。",
+  "permissions": [
+    "tabs",
+    "tabGroups",
+    "storage",
+    "alarms",
+    "contextMenus",
+    "windows"
+  ],
   "host_permissions": [
-    "https://api.openai.com/*",
-    "https://api.anthropic.com/*",
-    "https://openrouter.ai/*",
-    "https://api.groq.com/*",
-    "https://api.x.ai/*",
-    "http://localhost:11434/*"
+    "http://127.0.0.1/*",
+    "http://localhost/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -25,12 +29,18 @@
   },
   "commands": {
     "organize-tabs": {
-      "suggested_key": { "default": "Ctrl+Shift+G", "mac": "Command+Shift+G" },
-      "description": "Organize tabs into groups"
+      "suggested_key": {
+        "default": "Ctrl+Shift+G",
+        "mac": "Command+Shift+G"
+      },
+      "description": "整理标签页分组"
     },
     "undo-grouping": {
-      "suggested_key": { "default": "Ctrl+Shift+Z", "mac": "Command+Shift+Z" },
-      "description": "Undo last tab grouping"
+      "suggested_key": {
+        "default": "Ctrl+Shift+Z",
+        "mac": "Command+Shift+Z"
+      },
+      "description": "撤销上次标签页分组"
     }
   },
   "options_page": "options.html",
@@ -39,5 +49,8 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "incognito": "split"
+  "incognito": "split",
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' http://127.0.0.1:* http://localhost:*"
+  }
 }

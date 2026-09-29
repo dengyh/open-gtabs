@@ -22,7 +22,7 @@ describe('Options Page', () => {
       else if (msg.type === 'get-costs') cb({ costs: { byProvider: { openai: { inputTokens: 10, outputTokens: 20, cost: 0.05 } }, totalInputTokens: 10, totalOutputTokens: 20, totalCost: 0.05 } });
       else if (msg.type === 'test-connection') {
         testConnectionCallCount += 1;
-        cb(testConnectionCallCount === 1 ? { status: 'done' } : { status: 'error', error: 'Failed' });
+        cb(testConnectionCallCount === 1 ? { status: 'done' } : { status: 'error', error: '失败' });
       }
       else if (msg.type === 'export-data') cb({ data: { test: 1 } });
       else cb({ status: 'done' });
@@ -45,11 +45,20 @@ describe('Options Page', () => {
     // Click the last provider (Ollama) and confirm the selection updates
     (providerGrid!.lastElementChild as HTMLElement).click();
     for (let i = 0; i < 5; i++) await new Promise(r => process.nextTick(r));
-    expect(providerGrid!.querySelector('.provider-card.selected .name')?.textContent).toBe('Ollama (Local)');
+    expect(providerGrid!.querySelector('.provider-card.selected .name')?.textContent).toBe('Ollama（本机）');
 
     // Click a hosted provider and verify API key UI is shown
     (providerGrid!.children[1] as HTMLElement).click();
     expect((document.getElementById('key-row') as HTMLElement).classList.contains('hidden')).toBe(false);
+
+    expect(providerGrid!.querySelector('.provider-card.selected .name')?.textContent).toBe('TT Switch');
+    const baseUrl = document.getElementById('base-url') as HTMLInputElement;
+    const customModel = document.getElementById('custom-model') as HTMLInputElement;
+    expect(baseUrl.value).toBe('http://127.0.0.1:15721/tencent/v1');
+    customModel.value = 'custom-model-id';
+    customModel.dispatchEvent(new Event('change'));
+    for (let i = 0; i < 5; i++) await new Promise(r => process.nextTick(r));
+    expect(saveSpy).toHaveBeenLastCalledWith(expect.objectContaining({ provider: 'tt-switch', baseUrl: baseUrl.value, model: 'custom-model-id' }));
 
     // Test range bindings and auto-save
     const maxGroups = document.getElementById('maxGroups') as HTMLInputElement;
@@ -63,19 +72,19 @@ describe('Options Page', () => {
     const testBtn = document.getElementById('test-btn') as HTMLButtonElement;
     testBtn.click();
     for (let i = 0; i < 5; i++) await new Promise(r => process.nextTick(r));
-    expect(document.getElementById('test-result')?.textContent).toBe('Connected!');
+    expect(document.getElementById('test-result')?.textContent).toBe('连接成功！');
     
     // Test Connection Button Error
-    (chrome.runtime.sendMessage as any).mockImplementationOnce((msg: any, cb: Function) => cb({ status: 'error', error: 'Failed' }));
+    (chrome.runtime.sendMessage as any).mockImplementationOnce((msg: any, cb: Function) => cb({ status: 'error', error: '失败' }));
     testBtn.click();
     for (let i = 0; i < 5; i++) await new Promise(r => process.nextTick(r));
-    expect(document.getElementById('test-result')?.textContent).toBe('Failed');
+    expect(document.getElementById('test-result')?.textContent).toBe('失败');
 
     // Test adding a domain rule
     const btnAddRule = document.getElementById('add-rule') as HTMLButtonElement;
     btnAddRule.click();
     for (let i = 0; i < 5; i++) await new Promise(r => process.nextTick(r));
-    expect(saveRulesSpy).toHaveBeenCalled();
+    expect(saveRulesSpy).not.toHaveBeenCalled();
     const ruleInput = document.querySelector('.rule-domain') as HTMLInputElement;
     expect(ruleInput).toBeTruthy();
     

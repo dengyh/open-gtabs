@@ -2,6 +2,8 @@ export type Color = 'grey' | 'blue' | 'red' | 'yellow' | 'green' | 'pink' | 'pur
 
 export const COLORS: Color[] = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
 
+export const COLOR_LABELS: Record<Color, string> = { grey: '灰色', blue: '蓝色', red: '红色', yellow: '黄色', green: '绿色', pink: '粉色', purple: '紫色', cyan: '青色', orange: '橙色' };
+
 /** Known secondary-level TLDs for ccTLD base-domain extraction (.co.uk, .com.au, etc.) */
 export const SECONDARY_TLDS = new Set(['co', 'com', 'org', 'net', 'gov', 'edu', 'ac', 'me', 'ltd']);
 
@@ -15,52 +17,15 @@ export interface ProviderPreset {
   needsKey: boolean;
   canFetchModels?: boolean;
   isBuiltIn?: boolean;
+  customEndpoint?: boolean;
   signupUrl?: string;
   helpText?: string;
 }
 
 export const PROVIDERS: ProviderPreset[] = [
-  { id: 'chrome-ai', name: 'Chrome Built-in AI', baseUrl: '', models: ['gemini-nano'], needsKey: false, isBuiltIn: true, helpText: 'Free. Runs on-device in Chrome. Two flags to enable — click for setup guide.' },
-  { id: 'openrouter-free', name: 'OpenRouter (Free)', baseUrl: 'https://openrouter.ai/api/v1', signupUrl: 'https://openrouter.ai/keys', helpText: 'Free, no credit card. Sign up \u2192 copy key.', models: [
-    'openrouter/free',
-    'google/gemini-2.5-flash',
-    'google/gemini-2.5-flash-lite',
-    'deepseek/deepseek-v3.2-20251201',
-    'openai/gpt-oss-120b',
-    'xiaomi/mimo-v2-pro-20260318',
-  ], needsKey: true },
-  { id: 'groq', name: 'Groq (Free)', baseUrl: 'https://api.groq.com/openai/v1', signupUrl: 'https://console.groq.com/keys', helpText: 'Free, no credit card. Fastest inference.', models: [
-    'llama-3.3-70b-versatile',
-    'meta-llama/llama-4-scout-17b-16e-instruct',
-    'qwen/qwen3-32b',
-    'openai/gpt-oss-120b',
-  ], needsKey: true },
-  { id: 'grok', name: 'Grok (xAI)', baseUrl: 'https://api.x.ai/v1', signupUrl: 'https://console.x.ai', helpText: '$25 free credit on signup + $150/mo via data sharing.', models: [
-    'grok-4-1-fast-non-reasoning',
-    'grok-4-1-fast-reasoning',
-    'grok-4.20-0309-non-reasoning',
-    'grok-4.20-0309-reasoning',
-  ], needsKey: true },
-  { id: 'anthropic', name: 'Anthropic', baseUrl: 'https://api.anthropic.com', signupUrl: 'https://console.anthropic.com/settings/keys', helpText: 'Paid. $5 free credit on signup.', models: [
-    'claude-sonnet-4-6',
-    'claude-opus-4-6',
-    'claude-haiku-4-5',
-  ], needsKey: true },
-  { id: 'openai', name: 'OpenAI', baseUrl: 'https://api.openai.com/v1', signupUrl: 'https://platform.openai.com/api-keys', helpText: 'Paid. Usage-based pricing.', models: [
-    'gpt-5.4',
-    'gpt-5.4-mini',
-    'gpt-5.4-nano',
-    'gpt-4.1',
-    'gpt-4.1-mini',
-  ], needsKey: true },
-  { id: 'openrouter', name: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1', signupUrl: 'https://openrouter.ai/keys', helpText: 'Access 300+ models. Pay per token.', models: [
-    'anthropic/claude-4.6-sonnet-20260217',
-    'anthropic/claude-4.6-opus-20260205',
-    'openai/gpt-5-mini-2025-08-07',
-    'google/gemini-2.5-flash',
-    'deepseek/deepseek-v3.2-20251201',
-  ], needsKey: true },
-  { id: 'ollama', name: 'Ollama (Local)', baseUrl: 'http://localhost:11434/v1', models: [], needsKey: false, canFetchModels: true, signupUrl: 'https://ollama.com/download', helpText: 'Run models locally. Install Ollama first.' },
+  { id: 'chrome-ai', name: 'Chrome 内置 AI', baseUrl: '', models: ['gemini-nano'], needsKey: false, isBuiltIn: true, helpText: '在本机运行，无需 API 密钥；是否可用取决于 Chrome 版本和设备。' },
+  { id: 'tt-switch', name: 'TT Switch', baseUrl: 'http://127.0.0.1:15721/tencent/v1', models: ['gemini-3.5-flash'], needsKey: true, customEndpoint: true, helpText: '使用本机 TT Switch 的腾讯内网通用 API。请保持 TT Switch 运行。' },
+  { id: 'ollama', name: 'Ollama（本机）', baseUrl: 'http://localhost:11434/v1', models: [], needsKey: false, canFetchModels: true, signupUrl: 'https://ollama.com/download', helpText: '在本机运行模型，需先安装并启动 Ollama。' },
 ];
 
 // --- Tab & Group ---
@@ -86,6 +51,7 @@ export interface GroupSuggestion {
 // --- Settings ---
 
 export interface LLMConfig {
+  provider?: string;
   baseUrl: string;
   apiKey: string;
   model: string;
@@ -93,6 +59,8 @@ export interface LLMConfig {
 
 export interface Settings extends LLMConfig {
   provider: string;
+  excludePrivateHosts: boolean;
+  excludedDomains: string[];
   autoTrigger: boolean;
   threshold: number;
   maxGroups: number;
@@ -265,6 +233,8 @@ export const DEFAULT_SETTINGS: Settings = {
   baseUrl: '',
   apiKey: '',
   model: 'gemini-nano',
+  excludePrivateHosts: true,
+  excludedDomains: [],
   autoTrigger: false,
   threshold: 5,
   maxGroups: 6,

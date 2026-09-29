@@ -71,6 +71,8 @@ function sanitizeSettings(input: Partial<Settings>): Settings {
     baseUrl: typeof s.baseUrl === 'string' ? s.baseUrl : DEFAULT_SETTINGS.baseUrl,
     apiKey: typeof s.apiKey === 'string' ? s.apiKey.trim() : DEFAULT_SETTINGS.apiKey,
     model: typeof s.model === 'string' ? s.model : DEFAULT_SETTINGS.model,
+    excludePrivateHosts: s.excludePrivateHosts !== false,
+    excludedDomains: Array.isArray(s.excludedDomains) ? [...new Set(s.excludedDomains.filter((d): d is string => typeof d === 'string').map(d => d.trim().toLowerCase()).filter(Boolean))].slice(0, 500) : [],
     autoTrigger: Boolean(s.autoTrigger),
     threshold: clampNumber(s.threshold, DEFAULT_SETTINGS.threshold, 0, 100),
     maxGroups: clampNumber(s.maxGroups, DEFAULT_SETTINGS.maxGroups, 1, 30),
@@ -94,39 +96,23 @@ function sanitizeSettings(input: Partial<Settings>): Settings {
   };
 }
 
-// --- Settings (sync, except API key which is local-only for security) ---
-
+// Settings and rules are local-only. Commit locally before removing the legacy sync copy.
 export async function getSettings(): Promise<Settings> {
-  const [syncData, localData] = await Promise.all([
-    chrome.storage.sync.get({ [K.settings]: DEFAULT_SETTINGS }),
-    chrome.storage.local.get({ [K_API_KEY_LOCAL]: null }),
-  ]);
-  const syncSettings = sanitizeSettings(syncData[K.settings] as Partial<Settings>);
-  const base: Settings = { ...syncSettings };
-  // Prefer local API key (not synced across devices); fall back to sync (pre-migration)
-  if (localData[K_API_KEY_LOCAL] != null) {
-    base.apiKey = String(localData[K_API_KEY_LOCAL]).trim();
-  } else if (syncSettings.apiKey.trim().length > 0) {
-    // One-time migration from sync -> local and scrub sync copy
-    const migratedKey = syncSettings.apiKey.trim();
-    base.apiKey = migratedKey;
-    void Promise.all([
-      chrome.storage.local.set({ [K_API_KEY_LOCAL]: migratedKey }),
-      chrome.storage.sync.set({ [K.settings]: { ...syncSettings, apiKey: '' } }),
-    ]).catch(() => { /* migration is best-effort; key remains in sync until next save */ });
+  const local = await chrome.storage.local.get([K.settings, K_API_KEY_LOCAL]);
+  if (local[K.settings] != null) {
+    return sanitizeSettings({ ...(local[K.settings] as Settings), apiKey: String(local[K_API_KEY_LOCAL] ?? '') });
   }
-  return base;
+  const legacy = await chrome.storage.sync.get(K.settings);
+  const settings = sanitizeSettings(legacy[K.settings] as Partial<Settings> ?? {});
+  settings.apiKey = String(local[K_API_KEY_LOCAL] ?? settings.apiKey).trim();
+  await saveSettings(settings);
+  return settings;
 }
 
 export async function saveSettings(settings: Settings): Promise<void> {
-  const sanitized = sanitizeSettings(settings);
-  const { apiKey, ...syncSettings } = sanitized;
-  await Promise.all([
-    // Sync everything except the API key (keeps key off other devices)
-    chrome.storage.sync.set({ [K.settings]: { ...syncSettings, apiKey: '' } }),
-    // Store API key locally only
-    chrome.storage.local.set({ [K_API_KEY_LOCAL]: apiKey }),
-  ]);
+  const { apiKey, ...localSettings } = sanitizeSettings(settings);
+  await chrome.storage.local.set({ [K.settings]: { ...localSettings, apiKey: '' }, [K_API_KEY_LOCAL]: apiKey });
+  await chrome.storage.sync.remove(K.settings);
 }
 
 // --- Weighted Affinity (local) ---
@@ -151,7 +137,7 @@ export function computeDecayedWeight(count: number, lastUsed: number, now = Date
 
 async function migrateAffinity(): Promise<void> {
   const versionData = await chrome.storage.local.get({ [K.affinityVersion]: 0 });
-  if (versionData[K.affinityVersion] >= 2) return;
+  if (Number(versionData[K.affinityVersion]) >= 2) return;
 
   const oldData = await chrome.storage.local.get({ [K.affinity]: {} });
   const oldAffinity = oldData[K.affinity] as AffinityMap;
@@ -301,11 +287,15 @@ export async function saveSuggestions(suggestions: GroupSuggestion[] | null): Pr
   await chrome.storage.local.set({ [K.suggestions]: suggestions });
 }
 
-// --- Domain Rules (sync) ---
+// --- Domain Rules (local, with one-time migration) ---
 
 export async function getDomainRules(): Promise<DomainRule[]> {
-  const data = await chrome.storage.sync.get({ [K.domainRules]: [] });
-  return data[K.domainRules] as DomainRule[];
+  const data = await chrome.storage.local.get(K.domainRules);
+  if (data[K.domainRules] != null) return data[K.domainRules] as DomainRule[];
+  const legacy = await chrome.storage.sync.get({ [K.domainRules]: [] });
+  const rules = legacy[K.domainRules] as DomainRule[];
+  await saveDomainRules(rules);
+  return rules;
 }
 
 export async function saveDomainRules(rules: DomainRule[]): Promise<void> {
@@ -318,7 +308,8 @@ export async function saveDomainRules(rules: DomainRule[]): Promise<void> {
     }))
     .filter(r => r.domain.length > 0 && r.groupName.length > 0)
     .slice(0, MAX_DOMAIN_RULES);
-  await chrome.storage.sync.set({ [K.domainRules]: sanitized });
+  await chrome.storage.local.set({ [K.domainRules]: sanitized });
+  await chrome.storage.sync.remove(K.domainRules);
 }
 
 // --- Workspaces (local) ---
@@ -355,7 +346,7 @@ export async function saveUndoSnapshot(snapshot: UndoSnapshot | null): Promise<v
 
 export async function getStats(): Promise<Stats> {
   const data = await chrome.storage.local.get({ [K.stats]: DEFAULT_STATS });
-  return { ...DEFAULT_STATS, ...data[K.stats] };
+  return { ...DEFAULT_STATS, ...(data[K.stats] as Stats) };
 }
 
 export async function incrementStats(tabsGrouped: number): Promise<Stats> {
@@ -644,11 +635,11 @@ export async function exportAll(): Promise<ExportData> {
 }
 
 export async function importAll(data: ExportData): Promise<void> {
-  if (!data || typeof data !== 'object') throw new Error('Invalid import data');
+  if (!data || typeof data !== 'object') throw new Error('导入数据无效');
 
   // Preserve existing API key — never overwrite from import
   const currentSettings = await getSettings();
-  const importedSettings = { ...DEFAULT_SETTINGS, ...data.settings, apiKey: currentSettings.apiKey };
+  const importedSettings = { ...DEFAULT_SETTINGS, ...data.settings, apiKey: data.settings?.provider === currentSettings.provider && data.settings?.baseUrl === currentSettings.baseUrl ? currentSettings.apiKey : '' };
 
   const promises: Promise<void>[] = [
     saveSettings(importedSettings),

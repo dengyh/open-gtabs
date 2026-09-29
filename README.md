@@ -1,295 +1,71 @@
-# gTabs — AI Tab Organizer for Chrome
+# gTabs 中文版 · TT Switch
 
-<div align="center">
-  <br/>
+基于 [vaddisrinivas/gtabs](https://github.com/vaddisrinivas/gtabs) 的独立适配版：通过本机 TT Switch 整理 Chrome 标签页，提供中文界面、中文分组建议、已有分组复用和隐私过滤。当前版本：**0.5.1.2**。本项目不是上游 gTabs 或 TT Switch 的官方版本，也不是“GTab 新标签页”。
 
-  **Your tabs are a mess. One click fixes that.**
+## 快速安装
 
-  gTabs uses any LLM to intelligently organize your Chrome tabs into color-coded groups.
-  It learns from your behavior, remembers your corrections, and gets smarter over time.
+需要 Node.js 22.14+、npm 和 Chrome。先安装并启动 TT Switch。
 
-  <br/>
-
-  [Star on GitHub](https://github.com/vaddisrinivas/gtabs) · [Install](https://github.com/vaddisrinivas/gtabs/releases) · [Report Issue](https://github.com/vaddisrinivas/gtabs/issues)
-
-  [![✅ Merged — xyNNN/awesome-chrome](https://img.shields.io/badge/%E2%9C%85%20Merged-xyNNN%2Fawesome--chrome-green?style=flat-square)](https://github.com/xyNNN/awesome-chrome)
-
-  <br/>
-</div>
-
-![gTabs demo](store-assets/demo-v05.gif)
-
----
-
-## What's New in v0.5.1
-
-**Service Worker Reliability** — gTabs now rebuilds Chrome context menus with a full cleanup pass, serializes overlapping tab-group rebuilds, and ignores duplicate context menu ID errors during reload. This fixes MV3 service worker startup failures like `Cannot create item with duplicate id gtabs-add-to-group`.
-
-## What's New in v0.5
-
-**Smart Learning** — gTabs now learns from every interaction. Corrections you make before applying count 3x. Groups you remove are remembered and avoided. Domain affinity is weighted by frequency and recency with a 14-day decay half-life.
-
-**Scheduled Re-org** — Set daily or weekly automatic re-organization at a time you choose. Wake up to perfectly organized tabs.
-
-**Pinned Groups** — Mark groups as permanent so they survive re-organization. Pin "Comms" once, never lose it.
-
-**Group Health** — Drift detection warns when groups become incoherent. Merge/split suggestions appear when groups overlap or grow too large.
-
-**Smarter Routing** — New tabs opened from an existing grouped tab automatically join that group. Path-level affinity means `github.com/myorg` and `github.com/trending` can map to different groups.
-
----
-
-## Screenshots
-
-| Settings & Providers | Smart Learning | Organized Tabs |
-|:---:|:---:|:---:|
-| ![Settings](store-assets/screenshot-settings-1280x800.png) | ![Smart Learning](store-assets/screenshot-smart-learning-1280x800.png) | ![Organized](store-assets/screenshot-organized-1280x800.png) |
-
----
-
-## Features
-
-### Organize
-
-| | |
-|---|---|
-| **One-click Organize All** | AI groups every tab in your window by topic |
-| **Ungrouped Only** | Only touches tabs not already in a group |
-| **Suggestion-first UX** | Review, rename, recolor, remove — then apply |
-| **Undo** | Instantly restores the previous tab arrangement |
-| **Smart Merge** | Pre-assigns tabs to existing groups by title similarity before calling the LLM |
-
-### Learn
-
-| | |
-|---|---|
-| **Weighted Affinity** | Tracks how often each domain is placed in each group, decays stale patterns over 14 days |
-| **Path-level Affinity** | `github.com/myorg` maps separately from `github.com/trending` for multi-tenant sites |
-| **Correction Tracking** | When you rename groups or move tabs before applying, those edits are remembered as 3x signals |
-| **Rejection Memory** | When you remove a suggested group, gTabs remembers to avoid that grouping for 30 days |
-| **Pattern Mining** | Discovers domains that are frequently grouped together and uses them as co-occurrence hints |
-| **Opener Awareness** | New tabs opened from an existing grouped tab prefer joining that group |
-
-### Maintain
-
-| | |
-|---|---|
-| **Scheduled Re-org** | Daily or weekly automatic re-organization at a configurable time |
-| **Pinned Groups** | Mark groups as permanent — they survive re-organization |
-| **Group Drift Detection** | Warns when groups become incoherent and may need refreshing |
-| **Merge/Split Suggestions** | Detects overlapping groups (>60%) and oversized groups (>10 tabs, >5 domains) |
-| **Stale Tab Purge** | Remove inactive tabs older than a configurable threshold |
-
-### Tools
-
-| | |
-|---|---|
-| **Focus Mode** | Collapses all groups except the active one |
-| **Sort Groups** | Alphabetically sorts tabs by domain within each group |
-| **Clear Groups** | Ungroups everything in the current window |
-| **Duplicate Detection** | Finds tabs with the same URL |
-| **Zero-LLM Fast Routing** | Routes new tabs into existing groups via affinity — no API calls |
-| **Domain Rules** | Hard-wire `github.com` or `*.example.com` to `Dev`, always, skipping the LLM entirely |
-
-### Providers
-
-| Provider | Cost | Setup |
-|----------|------|-------|
-| **Groq** | Free (rate limited) | [Get key](https://console.groq.com/keys) — no credit card |
-| **Grok (xAI)** | $25 free credit | [Get key](https://console.x.ai) |
-| **OpenRouter** | Free models available | [Get key](https://openrouter.ai/keys) |
-| **Ollama** | Free (local) | [Install](https://ollama.com/download) — no key needed |
-| **Chrome AI** | Free (local) | [Setup guide below](#chrome-ai-gemini-nano-setup) — two flags, no account |
-| **Anthropic** | Paid | [Get key](https://console.anthropic.com/settings/keys) |
-| **OpenAI** | Paid | [Get key](https://platform.openai.com/api-keys) |
-
----
-
-## Chrome AI (Gemini Nano) Setup
-
-Chrome AI runs Gemini Nano directly inside Chrome — no API key, no account, no cost, no data leaving your machine. It is the default provider in gTabs.
-
-### Requirements
-
-- Chrome 127 or later (stable, beta, or canary)
-- Two flags enabled
-
-### Steps
-
-1. Paste the following URL into Chrome's address bar and set the flag to **Enabled**:
-   ```
-   chrome://flags/#prompt-api-for-gemini-nano
-   ```
-
-2. Paste this URL and set to **Enabled BypassPerfRequirement**:
-   ```
-   chrome://flags/#optimization-guide-on-device-model
-   ```
-   > The BypassPerfRequirement variant allows model download on any hardware. Without it, Chrome may skip the download on lower-spec machines.
-
-3. Click **Relaunch** at the bottom of the flags page.
-
-4. Open gTabs Settings → Provider tab → click **Check again**. Once detected, the Chrome AI card will show **FREE** and become selectable.
-
-> **Note:** The Gemini Nano model (~1 GB) downloads automatically in the background after you enable the flags. The first organization may be slower while the model loads. Subsequent runs are instant.
-
-### Fallback
-
-If Chrome AI is not available (older Chrome, unsupported OS, or flags not set), gTabs will show a setup guide directly in the settings page with copy buttons for each flag URL. You can also click **Use Groq instead** to switch to Groq's free API in one click.
-
----
-
-## Quick Start
-
-### Install from release
-
-1. Download `gtabs-extension.zip` from [Releases](https://github.com/vaddisrinivas/gtabs/releases)
-2. Unzip anywhere
-3. Open `chrome://extensions` → enable **Developer mode**
-4. **Load unpacked** → select the unzipped folder
-5. Pin gTabs to your toolbar
-
-### Build from source
-
-```bash
-git clone https://github.com/vaddisrinivas/gtabs.git
-cd gtabs
-npm install
-npm run build    # → dist/
+```sh
+git clone https://github.com/dengyh/gtabs-tt-switch.git
+cd gtabs-tt-switch
+npm ci --ignore-scripts
+npm run typecheck
+npm test
+npm run build
 ```
 
-### Configure (30 seconds)
+1. 打开 `chrome://extensions/`，启用“开发者模式”。
+2. 点击“加载未打包的扩展程序”，选择本项目的 **dist** 目录。
+3. 将“gTabs 中文版 · TT Switch”固定到工具栏，进入设置。
+4. 按 [TT Switch 配置说明](TT-SWITCH-SETUP.md) 填写本机接口、API Token 和模型 ID，然后测试连接。
+5. 先检查“整理方式 → 隐私与数据发送”，排除工作内网站点。首次建议手动整理，确认预览后点击“应用分组”。
 
-1. Click gTabs icon → **Settings**
-2. Pick a provider → paste API key → pick model → **Test**
-3. Return to popup → **Organize All**
+仓库为私有仓库，克隆需要仓库访问权限。更新代码后重新运行 `npm ci --ignore-scripts` 和 `npm run build`，再在 Chrome 扩展详情中点击“重新加载”。保持 dist 所在目录稳定，移动目录重新加载可能改变扩展 ID 和存储空间。
 
----
+## 与上游的区别
 
-## How It Works
+| 功能 | 本适配版 |
+| --- | --- |
+| 界面 | 设置、弹窗、右键菜单、常见提示和颜色名称采用简体中文 |
+| 模型连接 | TT Switch 腾讯通用 API、Ollama 本机服务、Chrome 内置 AI |
+| 自定义模型 | TT Switch 模型 ID 可编辑，是否可用取决于 TT Switch 的模型列表和当前账号 |
+| 网络权限 | 仅 localhost 和 127.0.0.1；接口路径受运行时校验限制，拒绝重定向；移除云端直连预设 |
+| 网址脱敏 | 发送前移除账号密码、全部查询参数和片段；保留域名、路径与截断后的标题 |
+| 站点排除 | 默认排除内网 IP / 本地主机名，可额外配置域名及子域名 |
+| 设置与规则 | 仅存本机；读取旧版时迁移 Chrome 同步配置，成功落盘后删除同步副本 |
+| 学习数据 | 保留本地规则与学习归组；历史、修正及域名偏好不再附加到模型请求 |
+| 已有分组 | 中文标题匹配；向模型提供符合隐私规则的现有组名，同名建议直接加入对应分组 |
+| 开发检查 | 严格 TypeScript 检查、自动化测试、构建、依赖审计；修复上游右键菜单取标签参数的问题 |
 
-```
-User clicks "Organize All"
-  |
-  |-- Domain rules applied instantly (no LLM)
-  |
-  |-- Smart merge: title-match ungrouped tabs to existing groups
-  |
-  |-- Remaining tabs sent to LLM with:
-  |     |-- Weighted affinity   (github.com -> "Dev" 12x, recent)
-  |     |-- Correction signals  (user moved amazon.com to "Shopping" 3x)
-  |     |-- Rejection signals   (AVOID: news.com in "Dev")
-  |     |-- Co-occurrence       ([github.com, stackoverflow.com] often together)
-  |     |-- Opener hints        (Tab 5 opened from Tab 2)
-  |     |-- History patterns    (50 past groupings summarized)
-  |     '-- Prompt: "Group into max N groups, return JSON"
-  |
-  |-- Response parsed -> editable suggestion cards shown
-  |
-  '-- User reviews -> Apply -> chrome.tabs.group()
-        |-- Weighted affinity updated (frequency + timestamp)
-        |-- Path-level affinity updated for multi-tenant sites
-        |-- History recorded, costs tracked
-        '-- Corrections captured if user edited before applying
-```
+## 如何触发整理
 
----
+- **手动整理**：点击扩展按钮或快捷键生成建议，再确认应用。开启“保护并复用已有分组”后只处理未分组标签。
+- **自动整理**：默认关闭。开启后，新建标签、标签加载完成和每 2 分钟的后台检查都可能触发；至少间隔 60 秒，且可参与 AI 整理的未分组标签必须达到阈值。会自动应用结果。
+- **本地规则快速归组**：与自动 AI 整理分别开关。页面加载后根据来源标签、域名规则和本机学习结果归组，不产生模型请求。
+- **定时重新整理**：独立的每天 / 每周功能，默认关闭。Chrome 休眠或关闭时不保证准点执行。
 
-## Architecture
+默认模型为 Chrome 内置 AI，默认关闭所有自动整理。TT Switch 需要在设置中手动选择并配置；建议开启保护已有分组，先用无敏感内容的测试窗口验证。
 
-```
-Popup / Options UI
-       |
-Background Service Worker
-   |-- LLM Provider Adapter (OpenAI, Anthropic, Groq, xAI, Ollama, Chrome AI)
-   |-- Grouper (prompt builder, parser, domain rules, title matching)
-   |-- Storage (weighted affinity, corrections, rejections, co-occurrence, history)
-   '-- Chrome APIs (tabs, tabGroups, alarms, storage)
-```
+## 安全与隐私边界
 
-| File | Role |
-|------|------|
-| `types.ts` | All interfaces — weighted affinity, corrections, rejections, settings |
-| `storage.ts` | Chrome storage wrapper — migration, decay math, summarizers |
-| `grouper.ts` | Prompt builder, JSON parser, title matching, domain rules |
-| `llm.ts` | Provider-agnostic LLM client with token counting |
-| `background.ts` | Service worker — orchestration, drift detection, scheduled re-org |
-| `popup.ts/html` | Action popup — organize, pin, correct, reject, merge/split |
-| `options.ts/html` | Settings — providers, learning toggles, schedules, pinned groups |
+TT Switch 是本机代理，**不代表模型在本机运行**。选择它后，标签标题、脱敏网址、标签 ID，以及用于复用的现有组名会经 TT Switch 转发到其配置的服务。只有 Ollama 本地模型和可用的 Chrome 内置模型适合离线推理。
 
----
+- 不注入网页脚本，不读取网页正文、密码框、Cookie 或浏览历史数据库。`tabs` 权限仍能读取已打开标签的标题与网址。
+- 排除规则不解析 DNS；公司使用公网形式的内部域名需要手工加入列表。域名排除覆盖整个子域，不能自动识别所有企业站点。
+- 标题与网址路径仍可能包含敏感信息；网址脱敏不能代替站点排除。
+- API Token 只保存在 `chrome.storage.local`，没有应用层加密。导出设置不包含 Token，但工作区、规则、学习记录等仍可能敏感，请勿公开导出文件。
+- 打开“本地规则快速归组”仍可能在本机移动被 AI 排除的标签，排除规则的含义是“不发送给模型”。
+- 本机服务权限仍覆盖这两个主机的所有端口（Chrome 匹配规则不按端口授权），运行时代码进一步限制接口路径。保管好 TT Switch Token，并避免运行不可信的本机代理。
 
-## Settings
+详见 [隐私说明](PRIVACY.md) 与 [安全设计及验证边界](SECURITY.md)。
 
-### Behavior
-- **Max Groups** (2–15) — limit the number of groups AI creates
-- **Auto-organize Threshold** (2–25) — trigger when ungrouped tabs exceed this
-- **Title Truncation** (20–200) — max tab title chars sent to the LLM
-- **Stale Tab Age** (1–168h) — threshold for purging inactive tabs
-- **Auto-organize** — silently group when threshold met
-- **Protect Existing Groups** — only organize ungrouped tabs
-- **Zero-LLM Fast Routing** — route new tabs via affinity, no API calls
-- **Auto-pin Web Apps** — pin Gmail, Calendar, Jira, Spotify to the left
+## 二次开发
 
-### Smart Learning
-- **Correction Tracking** — learn from your edits before applying (on by default)
-- **Rejection Memory** — remember removed groups and avoid them (on by default)
-- **Group Drift Detection** — warn when groups become incoherent
-- **Pattern Mining** — discover co-occurring domains from history
-- **Drift Threshold** (20–80%) — coherence below which a group is flagged
+**可以二次开发。** 上游为 MIT 许可，允许修改和再分发；保留 [LICENSE](LICENSE) 的版权与许可声明。本仓库保留完整上游 Git 历史，并用 [NOTICE](NOTICE) 标注基线和适配范围。
 
-### Scheduled Re-org
-- **Schedule** — Off / Daily / Weekly
-- **Time of Day** (0–23) — hour when scheduled re-org runs
+- [开发指南](CONTRIBUTING.md)：目录、消息流程、如何改模型或分组逻辑、测试、发布、同步上游。
+- [更新记录](CHANGELOG.md)
+- GitHub Actions 在 main 推送和 PR 时执行类型检查、测试和构建，并提供未打包扩展产物。
 
-### Pinned Groups
-- Groups marked as pinned survive all re-organization
-- Pin from popup (pin icon on each suggestion card) or settings page
-
----
-
-## Keyboard Shortcuts
-
-| Shortcut | Action |
-|----------|--------|
-| `Cmd+Shift+G` / `Ctrl+Shift+G` | Organize all tabs |
-| `Cmd+Shift+Z` / `Ctrl+Shift+Z` | Undo last grouping |
-
----
-
-## Development
-
-```bash
-npm install          # install dev deps
-npm test             # run 394 tests
-npm run test:watch   # watch mode
-npm run build        # build -> dist/
-npm run dev          # watch + rebuild on change
-```
-
----
-
-## Chrome Web Store Submission
-
-### HTTP localhost permission justification
-
-`manifest.json` declares `http://localhost:11434/*` in `host_permissions`. Chrome Web Store policy requires a written justification for plain-HTTP host permissions. Use the following text when submitting:
-
-> "The extension optionally connects to a locally running Ollama instance (http://localhost:11434) for private, on-device LLM inference. This is the only non-HTTPS endpoint and is entirely user-configured. No data leaves the user's machine when this provider is selected."
-
-### Pre-submission checklist
-
-- [ ] HTTP localhost justification included in store listing (see above)
-- [ ] `"windows"` permission added to `manifest.json` (required for `chrome.windows.getCurrent()` — see `reports/mv3-audit.md`)
-- [ ] Store screenshots match current UI
-- [ ] Version bumped in `manifest.json` and `package.json`
-
----
-
-## Contributing
-
-PRs welcome. Run `npm test` before submitting. Zero runtime dependencies — keep it that way.
-
-## License
-
-MIT
+本版本沿用原作者的图标和基础界面。自行分发时请明确标识为衍生版本，不要冒充上游官方商店扩展。

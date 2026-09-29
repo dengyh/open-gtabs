@@ -160,7 +160,7 @@ describe('getTabs', () => {
 
 // ---------- organize ----------
 
-const TEST_SETTINGS = { ...DEFAULT_SETTINGS, provider: 'openai', baseUrl: 'https://api.test.com/v1', apiKey: 'test', model: 'test-model' };
+const TEST_SETTINGS = { ...DEFAULT_SETTINGS, provider: 'tt-switch', baseUrl: 'http://127.0.0.1:15721/tencent/v1', apiKey: 'test', model: 'test-model' };
 
 describe('organize', () => {
   beforeEach(async () => {
@@ -172,7 +172,7 @@ describe('organize', () => {
       { id: 1, title: 'Solo', url: 'https://example.com' } as any,
     ]);
     const result = await organize();
-    expect(result.error).toContain('at least 2');
+    expect(result.error).toContain('至少需要 2');
   });
 
   it('returns suggestions on success', async () => {
@@ -180,6 +180,26 @@ describe('organize', () => {
     const result = await organize();
     expect(result.suggestions).toBeDefined();
     expect(result.suggestions!.length).toBeGreaterThan(0);
+  });
+
+  it('excludes private tabs and private-only group names from model context', async () => {
+    await saveSettings({ ...TEST_SETTINGS, mergeMode: true, excludedDomains: ['company.example'] });
+    vi.mocked(chrome.tabs.query).mockResolvedValue([
+      { id: 1, title: 'Public A', url: 'https://a.example.com', groupId: -1 },
+      { id: 2, title: 'Public B', url: 'https://b.example.com', groupId: -1 },
+      { id: 3, title: 'Private', url: 'https://wiki.company.example', groupId: 77 },
+      { id: 4, title: 'Reference', url: 'https://docs.example.com', groupId: 88 },
+    ] as any);
+    vi.mocked(chrome.tabGroups.query).mockResolvedValue([
+      { id: 77, title: 'PRIVATE_GROUP', windowId: 1 },
+      { id: 88, title: '参考文档', windowId: 1 },
+    ] as any);
+    mockFetchLLM('[{"name":"参考文档","color":"blue","tabIds":[1,2]}]');
+    await organize();
+    const body = String(vi.mocked(fetch).mock.calls[0][1]?.body);
+    expect(body).not.toContain('PRIVATE_GROUP');
+    expect(body).not.toContain('company.example');
+    expect(body).toContain('参考文档');
   });
 
   it('sets badge text to group count', async () => {
@@ -198,7 +218,7 @@ describe('organize', () => {
   it('catches non-Error exceptions', async () => {
     vi.mocked(fetch).mockRejectedValue('string error');
     const result = await organize();
-    expect(result.error).toBe('Unknown error');
+    expect(result.error).toBe('未知错误');
   });
 });
 
@@ -221,6 +241,14 @@ describe('applyGroups', () => {
   it('creates groups for each suggestion', async () => {
     await applyGroups(suggestions);
     expect(chrome.tabs.group).toHaveBeenCalledTimes(2);
+  });
+
+  it('reuses an existing group without changing its name, color, or collapsed state', async () => {
+    await saveSettings({ ...DEFAULT_SETTINGS, mergeMode: true });
+    vi.mocked(chrome.tabGroups.query).mockResolvedValue([{ id: 77, title: 'Dev', color: 'green', collapsed: true, windowId: 1 }] as any);
+    await applyGroups([suggestions[0]]);
+    expect(chrome.tabs.group).toHaveBeenCalledWith({ tabIds: [1], groupId: 77 });
+    expect(chrome.tabGroups.update).not.toHaveBeenCalled();
   });
 
   it('sets correct group titles and colors', async () => {
@@ -398,7 +426,7 @@ describe('power tools', () => {
     });
     vi.mocked(chrome.tabGroups.query).mockResolvedValue([
       { id: 99, title: 'Current' },
-      { id: 100, title: 'Other' },
+      { id: 100, title: '其他' },
     ] as any);
 
     const count = await focusCurrentGroup();
@@ -417,7 +445,7 @@ describe('power tools', () => {
     });
     vi.mocked(chrome.tabGroups.query).mockResolvedValue([
       { id: 0, title: 'Current' },
-      { id: 2, title: 'Other' },
+      { id: 2, title: '其他' },
     ] as any);
 
     const count = await focusCurrentGroup();
@@ -494,7 +522,7 @@ describe('event listeners', () => {
     vi.useFakeTimers();
     _resetAutoCheckCooldown();
     vi.mocked(chrome.tabs.query).mockResolvedValue([]);
-    await saveSettings({ ...DEFAULT_SETTINGS, provider: 'groq', baseUrl: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile', apiKey: 'test-key', autoTrigger: true, threshold: 0, silentAutoAdd: true });
+    await saveSettings({ ...DEFAULT_SETTINGS, provider: 'tt-switch', baseUrl: 'http://127.0.0.1:15721/tencent/v1', model: 'llama-3.3-70b-versatile', apiKey: 'test-key', autoTrigger: true, threshold: 0, silentAutoAdd: true });
   });
 
   afterEach(() => {
@@ -516,6 +544,20 @@ describe('event listeners', () => {
     
     // Check if organize logic kicked in. fetch is a good proxy.
     expect(fetch).toHaveBeenCalled();
+  });
+
+  it('counts only eligible ungrouped tabs toward the automatic threshold', async () => {
+    await saveSettings({ ...DEFAULT_SETTINGS, autoTrigger: true, threshold: 5 });
+    vi.mocked(chrome.tabs.query).mockResolvedValue([
+      ...Array.from({ length: 20 }, (_, i) => ({ id: i + 1, url: 'https://example.com', groupId: 8 })),
+      { id: 50, url: 'https://example.org', groupId: -1 },
+      { id: 51, url: 'chrome://extensions', groupId: -1 },
+    ] as any);
+    await (chrome.alarms.onAlarm as any).callListeners({ name: 'gtabs-check' });
+    await vi.runAllTimersAsync();
+    for (let i = 0; i < 15; i++) await new Promise(r => process.nextTick(r));
+    expect(fetch).not.toHaveBeenCalled();
+    expect(chrome.tabs.group).not.toHaveBeenCalled();
   });
 
   it('auto-trigger applies grouped suggestions when threshold is met', async () => {
@@ -617,7 +659,7 @@ describe('event listeners', () => {
     it('handles onInstalled', async () => {
       await (chrome.runtime.onInstalled as any).callListeners();
       expect(chrome.alarms.create).toHaveBeenCalled();
-      // 4 action-context menus + Add-to-group parent + New group child
+      // 4 action-context menus + Add-to-group parent + 新建分组 child
       expect(chrome.contextMenus.create).toHaveBeenCalledTimes(6);
       expect(chrome.contextMenus.removeAll).toHaveBeenCalledOnce();
     });
@@ -643,7 +685,7 @@ describe('event listeners', () => {
       ]);
       expect(created).toEqual(expect.arrayContaining([
         expect.objectContaining({ id: 'gtabs-add-to-group-101', parentId: 'gtabs-add-to-group', title: 'Docs' }),
-        expect.objectContaining({ id: 'gtabs-add-to-group-202', parentId: 'gtabs-add-to-group', title: 'Group 202' }),
+        expect.objectContaining({ id: 'gtabs-add-to-group-202', parentId: 'gtabs-add-to-group', title: '分组 202' }),
       ]));
     });
 

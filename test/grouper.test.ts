@@ -6,7 +6,7 @@ import {
 import type { TabInfo, AffinityMap, DomainRule, WeightedAffinityMap, RejectionEntry } from '../src/types';
 import { DEFAULT_SETTINGS, COLORS } from '../src/types';
 
-const TEST_SETTINGS = { ...DEFAULT_SETTINGS, provider: 'openai', baseUrl: 'https://api.test.com/v1', apiKey: 'test', model: 'test-model' };
+const TEST_SETTINGS = { ...DEFAULT_SETTINGS, provider: 'tt-switch', baseUrl: 'http://127.0.0.1:15721/tencent/v1', apiKey: 'test', model: 'test-model' };
 
 const tabs: TabInfo[] = [
   { id: 1, title: 'GitHub - repo', url: 'https://github.com/user/repo' },
@@ -167,7 +167,6 @@ describe('applyDomainRules', () => {
 
 // ---------- inferTargetGroup ----------
 
-import { inferTargetGroup } from '../src/grouper';
 
 describe('inferTargetGroup', () => {
   it('returns null for unparseable URLs', () => {
@@ -431,13 +430,13 @@ describe('parseResponse', () => {
   it('defaults empty name to Unnamed', () => {
     const raw = '[{"name":"","color":"blue","tabIds":[1]}]';
     const result = parseResponse(raw, tabs);
-    expect(result[0].name).toBe('Unnamed');
+    expect(result[0].name).toBe('未命名');
   });
 
   it('defaults missing name to Unnamed', () => {
     const raw = '[{"color":"blue","tabIds":[1]}]';
     const result = parseResponse(raw, tabs);
-    expect(result[0].name).toBe('Unnamed');
+    expect(result[0].name).toBe('未命名');
   });
 
   it('handles empty tabIds array', () => {
@@ -468,7 +467,7 @@ describe('parseResponse', () => {
   });
 
   it('throws on non-array JSON', () => {
-    expect(() => parseResponse('{"name":"Dev"}', tabs)).toThrow('not an array');
+    expect(() => parseResponse('{"name":"Dev"}', tabs)).toThrow('不是分组数组');
   });
 
   it('handles number as name (coerces to string)', () => {
@@ -526,14 +525,14 @@ describe('suggest', () => {
     const { suggestions: result } = await suggest(tabs, TEST_SETTINGS, {});
     expect(result).toHaveLength(3); // 2 LLM groups + "Other" for unassigned tab 4
     expect(result[0].tabs[0].title).toBe('GitHub - repo');
-    expect(result[2].name).toBe('Other');
+    expect(result[2].name).toBe('其他');
   });
 
-  it('passes affinity to prompt', async () => {
+  it('keeps learned affinity local', async () => {
     mockLLM('[{"name":"Dev","color":"blue","tabIds":[1]}]');
     await suggest(tabs, TEST_SETTINGS, { 'github.com': 'Code' });
     const body = JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string);
-    expect(body.messages[1].content).toContain('Code');
+    expect(body.messages[1].content).not.toContain('Code');
   });
 
   it('applies domain rules before LLM call', async () => {
@@ -616,7 +615,7 @@ describe('inferTargetGroup with weighted affinity', () => {
 
   it('domain rules take highest priority', () => {
     const weighted: WeightedAffinityMap = {
-      'pinned.com': { groups: { 'Other': { count: 100, lastUsed: Date.now() } } },
+      'pinned.com': { groups: { '其他': { count: 100, lastUsed: Date.now() } } },
     };
     const result = inferTargetGroup('https://pinned.com/page', rules, {}, weighted);
     expect(result?.name).toBe('Pinned');
@@ -663,6 +662,10 @@ describe('inferTargetGroup with weighted affinity', () => {
 // ---------- tokenizeTitle ----------
 
 describe('tokenizeTitle', () => {
+  it('recognizes Chinese group names during local matching', () => {
+    expect(tokenizeTitle('开发文档与浏览器')).toContain('文档');
+    expect(titleGroupSimilarity('浏览器开发文档', '开发文档')).toBeGreaterThan(0.3);
+  });
   it('tokenizes basic title', () => {
     expect(tokenizeTitle('GitHub - My Project')).toEqual(['github', 'project']);
   });

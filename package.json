@@ -1,6 +1,6 @@
 {
-  "name": "gtabs",
-  "version": "0.5.1",
+  "name": "gtabs-tt-switch",
+  "version": "0.5.1-tt.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,14 +8,18 @@
     "package": "rm -f gtabs-extension.zip && cd dist && (xattr -cr . 2>/dev/null || true) && zip -rX ../gtabs-extension.zip . -x '*.map' && cd .. && echo 'Packaged → gtabs-extension.zip'",
     "test": "vitest run",
     "test:watch": "vitest",
-    "dev": "node build.mjs --watch"
+    "dev": "node build.mjs --watch",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/chrome": "^0.1.38",
-    "@vitest/coverage-v8": "^2.1.0",
-    "esbuild": "^0.24.0",
+    "@vitest/coverage-v8": "^5.0.2",
+    "esbuild": "^0.28.2",
     "jsdom": "^29.0.1",
     "typescript": "^5.7.0",
-    "vitest": "^2.1.0"
+    "vitest": "^5.0.2"
+  },
+  "engines": {
+    "node": ">=22.14"
   }
 }

@@ -30,7 +30,7 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = LLM_
     return res;
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new Error(`LLM request timed out after ${timeoutMs / 1000}s`);
+      throw new Error(`模型请求超时（${timeoutMs / 1000} 秒）`);
     }
     throw err;
   } finally {
@@ -44,7 +44,7 @@ export function isChromeAIAvailable(): boolean {
 
 async function completeChromeAI(messages: Message[]): Promise<CompletionResult> {
   const LM = globalThis.LanguageModel;
-  if (!LM) throw new Error('Chrome AI not available. Enable chrome://flags/#prompt-api-for-gemini-nano, join the extension origin trial, and restart Chrome.');
+  if (!LM) throw new Error('Chrome 内置 AI 当前不可用，请改用 TT Switch 或检查浏览器模型设置。');
 
   const systemPrompt = messages.filter(m => m.role === 'system').map(m => m.content).join('\n');
   const userContent = messages.filter(m => m.role !== 'system').map(m => m.content).join('\n');
@@ -62,42 +62,6 @@ async function completeChromeAI(messages: Message[]): Promise<CompletionResult> 
   }
 }
 
-async function completeAnthropic(config: LLMConfig, messages: Message[]): Promise<CompletionResult> {
-  const system = messages.filter(m => m.role === 'system').map(m => m.content).join('\n');
-  const msgs = messages.filter(m => m.role !== 'system');
-  const inputText = messages.map(m => m.content).join('');
-
-  const apiKey = config.apiKey.trim();
-  if (!apiKey) throw new Error('API key is required for Anthropic');
-
-  const res = await fetchWithTimeout(`${normalizeBaseUrl(config.baseUrl)}/v1/messages`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: config.model,
-      max_tokens: MAX_TOKENS,
-      temperature: 0.2,
-      ...(system ? { system } : {}),
-      messages: msgs,
-    }),
-  });
-
-  if (!res.ok) throw new Error(`LLM error ${res.status}: ${await res.text()}`);
-
-  const data = await res.json();
-  if (data.content?.[0]?.text == null) throw new Error('Empty response from Anthropic');
-  return {
-    content: data.content[0].text,
-    inputTokens: data.usage?.input_tokens ?? estimateTokens(inputText),
-    outputTokens: data.usage?.output_tokens ?? estimateTokens(data.content[0].text),
-  };
-}
-
 async function completeOpenAI(config: LLMConfig, messages: Message[]): Promise<CompletionResult> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   const apiKey = config.apiKey.trim();
@@ -107,6 +71,7 @@ async function completeOpenAI(config: LLMConfig, messages: Message[]): Promise<C
 
   const res = await fetchWithTimeout(`${normalizeBaseUrl(config.baseUrl)}/chat/completions`, {
     method: 'POST',
+    redirect: 'error',
     headers,
     body: JSON.stringify({
       model: config.model,
@@ -116,11 +81,11 @@ async function completeOpenAI(config: LLMConfig, messages: Message[]): Promise<C
     }),
   });
 
-  if (!res.ok) throw new Error(`LLM error ${res.status}: ${await res.text()}`);
+  if (!res.ok) throw new Error(`模型服务返回 HTTP ${res.status}，请检查连接、额度和模型配置。`);
 
   const data = await res.json();
   const choice = data.choices?.[0];
-  if (choice?.message?.content == null) throw new Error('Empty response from LLM');
+  if (choice?.message?.content == null) throw new Error('模型返回了空内容');
   const content = choice.message.content;
   return {
     content,
@@ -129,12 +94,13 @@ async function completeOpenAI(config: LLMConfig, messages: Message[]): Promise<C
   };
 }
 
-function isAnthropic(baseUrl: string): boolean {
-  return baseUrl.includes('anthropic.com');
-}
-
-function isChromeAI(config: LLMConfig): boolean {
-  return !config.baseUrl && config.model === 'gemini-nano';
+function validateLocalEndpoint(baseUrl: string, path: string): void {
+  let url: URL;
+  try { url = new URL(baseUrl); } catch { throw new Error('请输入有效的本机模型接口地址'); }
+  if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(url.hostname)
+    || normalizeBaseUrl(url.pathname) !== path || url.username || url.password || url.search || url.hash) {
+    throw new Error('仅允许本机 TT Switch /tencent/v1 或 Ollama /v1 接口，禁止外部地址及重定向');
+  }
 }
 
 export async function complete(config: LLMConfig, messages: Message[]): Promise<string> {
@@ -143,15 +109,25 @@ export async function complete(config: LLMConfig, messages: Message[]): Promise<
 }
 
 export async function completeWithUsage(config: LLMConfig, messages: Message[]): Promise<CompletionResult> {
-  if (isChromeAI(config)) return completeChromeAI(messages);
-  if (isAnthropic(config.baseUrl)) return completeAnthropic(config, messages);
+  if (!config.baseUrl && config.model === 'gemini-nano' && (!config.provider || config.provider === 'chrome-ai')) {
+    return completeChromeAI(messages);
+  }
+  if (config.provider === 'tt-switch') {
+    validateLocalEndpoint(config.baseUrl, '/tencent/v1');
+    if (!config.apiKey.trim() || !config.model.trim()) throw new Error('请填写 TT Switch API Token 和模型 ID');
+  } else if (!config.provider || config.provider === 'ollama') {
+    validateLocalEndpoint(config.baseUrl, '/v1');
+  } else {
+    throw new Error('此版本仅支持 TT Switch、Ollama 和 Chrome 内置 AI');
+  }
   return completeOpenAI(config, messages);
 }
 
 export async function fetchOllamaModels(baseUrl: string): Promise<string[]> {
+  validateLocalEndpoint(baseUrl, '/v1');
   const base = baseUrl.replace(/\/v1\/?$/, '');
-  const res = await fetchWithTimeout(`${base}/api/tags`, { method: 'GET' }, 5000);
-  if (!res.ok) throw new Error('Could not connect to Ollama');
+  const res = await fetchWithTimeout(`${base}/api/tags`, { method: 'GET', redirect: 'error' }, 5000);
+  if (!res.ok) throw new Error('无法连接 Ollama');
   const data = await res.json();
   return (data.models || []).map((m: any) => m.name || m.model).filter(Boolean) as string[];
 }

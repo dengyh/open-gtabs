@@ -17,6 +17,10 @@ function makeStorage(store: Record<string, unknown>) {
       for (const [k, def] of Object.entries(keys)) r[k] = k in store ? store[k] : def;
       return Promise.resolve(r);
     }),
+    remove: vi.fn((keys: string | string[]) => {
+      for (const key of Array.isArray(keys) ? keys : [keys]) delete store[key];
+      return Promise.resolve();
+    }),
     set: vi.fn((items: Record<string, unknown>) => {
       Object.assign(store, items);
       return Promise.resolve();
@@ -164,11 +168,6 @@ let groupIdCounter = 100;
   },
 };
 
-(globalThis as any).navigator = {
-  ...globalThis.navigator,
-  clipboard: {
-    writeText: vi.fn(() => Promise.resolve()),
-  }
-};
+Object.defineProperty(globalThis.navigator, 'clipboard', { configurable: true, value: { writeText: vi.fn(() => Promise.resolve()) } });
 
 (globalThis as any).fetch = vi.fn();

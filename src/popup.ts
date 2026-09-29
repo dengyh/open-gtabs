@@ -1,5 +1,6 @@
+import type { MessageType } from './types';
 import type { Color, GroupSuggestion, TabInfo, CorrectionEntry, RejectionEntry } from './types';
-import { COLORS } from './types';
+import { COLORS, COLOR_LABELS } from './types';
 import { getSuggestions, getSettings, saveSettings } from './storage';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -36,7 +37,7 @@ function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function sendMsg(msg: Record<string, unknown>): Promise<Record<string, unknown> | undefined> {
+function sendMsg(msg: Record<string, unknown>): Promise<(Partial<Extract<MessageType, { type: 'status' }>> & { available?: boolean }) | undefined> {
   return new Promise(resolve => chrome.runtime.sendMessage(msg, resolve));
 }
 
@@ -89,9 +90,9 @@ function renderSuggestions(suggestions: GroupSuggestion[]) {
       <div class="card-header">
         <input class="group-name" value="${esc(g.name)}" data-i="${i}" />
         <select class="group-color" data-i="${i}">
-          ${COLORS.map(c => `<option value="${c}" ${c === g.color ? 'selected' : ''}>${c}</option>`).join('')}
+          ${COLORS.map(c => `<option value="${c}" ${c === g.color ? 'selected' : ''}>${COLOR_LABELS[c]}</option>`).join('')}
         </select>
-        <button class="pin-group" data-i="${i}" title="Pin this group (survives re-org)">&#x1F4CC;</button>
+        <button class="pin-group" data-i="${i}" title="锁定此分组，重新整理时保留">&#x1F4CC;</button>
         <button class="remove-group" data-i="${i}">&times;</button>
       </div>
       <ul class="tab-list">
@@ -121,10 +122,10 @@ function renderSuggestions(suggestions: GroupSuggestion[]) {
       const pinned = new Set(settings.pinnedGroups);
       if (pinned.has(groupName)) {
         pinned.delete(groupName);
-        setStatus(`Unpinned "${groupName}"`);
+        setStatus(`已解除“${groupName}”的锁定`);
       } else {
         pinned.add(groupName);
-        setStatus(`Pinned "${groupName}" — survives re-org`);
+        setStatus(`已锁定“${groupName}”，重新整理时保留`);
       }
       await saveSettings({ ...settings, pinnedGroups: [...pinned] });
     }),
@@ -162,7 +163,7 @@ function renderSuggestions(suggestions: GroupSuggestion[]) {
 function renderTabSearchResults(results: Array<{ id: number; title: string; url: string; groupName: string; groupId: number }>) {
   tabSearchResults.innerHTML = '';
   if (!results.length) {
-    tabSearchResults.innerHTML = '<div class="tab-search-empty">No tabs found</div>';
+    tabSearchResults.innerHTML = '<div class="tab-search-empty">没有匹配的标签</div>';
     return;
   }
   for (const tab of results.slice(0, 30)) {
@@ -173,7 +174,7 @@ function renderTabSearchResults(results: Array<{ id: number; title: string; url:
         <span class="tab-search-title">${esc(tab.title || tab.url)}</span>
         ${tab.groupName ? `<span class="tab-search-group">${esc(tab.groupName)}</span>` : ''}
       </div>
-      <button class="btn-ghost tab-search-switch" data-id="${tab.id}">Switch</button>`;
+      <button class="btn-ghost tab-search-switch" data-id="${tab.id}">切换</button>`;
     tabSearchResults.appendChild(row);
   }
   tabSearchResults.querySelectorAll<HTMLButtonElement>('.tab-search-switch').forEach(btn => {
@@ -262,7 +263,7 @@ document.addEventListener('keydown', e => {
 // --- Core actions ---
 
 async function doOrganize(ungroupedOnly: boolean) {
-  setStatus('Organizing...');
+  setStatus('正在整理…');
   btnOrganize.disabled = true;
   btnOrganizeUngrouped.disabled = true;
   container.innerHTML = '';
@@ -274,14 +275,14 @@ async function doOrganize(ungroupedOnly: boolean) {
   btnOrganizeUngrouped.disabled = false;
 
   if (!res) {
-    setStatus('No response — try again', true);
+    setStatus('未收到响应，请重试', true);
   } else if (res.error) {
     setStatus(res.error, true);
   } else if (res.suggestions) {
-    setStatus(`${res.suggestions.length} groups suggested`);
+    setStatus(`建议创建 ${res.suggestions.length} 个分组`);
     renderSuggestions(res.suggestions);
   } else {
-    setStatus('No suggestions returned', true);
+    setStatus('没有返回分组建议', true);
   }
 }
 
@@ -290,7 +291,7 @@ btnOrganizeUngrouped.addEventListener('click', () => doOrganize(true));
 
 btnApply.addEventListener('click', async () => {
   if (!currentSuggestions.length) return;
-  setStatus('Applying...');
+  setStatus('正在应用…');
   btnApply.disabled = true;
 
   const corrections = computeCorrections(originalSuggestions, currentSuggestions);
@@ -299,16 +300,16 @@ btnApply.addEventListener('click', async () => {
   }
 
   await sendMsg({ type: 'apply', suggestions: currentSuggestions });
-  setStatus('Applied!');
+  setStatus('已应用！');
   btnApply.disabled = false;
   clearSuggestionUi();
   await refreshFooter();
 });
 
 btnUndo.addEventListener('click', async () => {
-  setStatus('Undoing...');
+  setStatus('正在撤销…');
   const res = await sendMsg({ type: 'undo' });
-  setStatus(res?.error ? res.error : 'Undone!', Boolean(res?.error));
+  setStatus(res?.error ? res.error : '已撤销！', Boolean(res?.error));
 });
 
 btnSettings.addEventListener('click', () => {
@@ -324,11 +325,11 @@ async function refreshFooter() {
   ]);
 
   if (statsRes?.stats?.totalOrganizations) {
-    statsText.textContent = `${statsRes.stats.totalOrganizations} organizes · ${statsRes.stats.totalTabsGrouped} tabs`;
+    statsText.textContent = `${statsRes.stats.totalOrganizations} 次整理 · ${statsRes.stats.totalTabsGrouped} 个标签`;
   }
 
-  if (costsRes?.costs?.totalCost > 0) {
-    costText.textContent = `~$${costsRes.costs.totalCost.toFixed(4)} total`;
+  if (costsRes?.costs && costsRes.costs.totalCost > 0) {
+    costText.textContent = `累计估算 $${costsRes.costs.totalCost.toFixed(4)}`;
   }
 }
 
@@ -337,7 +338,7 @@ async function refreshFooter() {
 (async () => {
   const pending = await getSuggestions();
   if (pending?.length) {
-    setStatus(`${pending.length} pending suggestions`);
+    setStatus(`${pending.length} 个待确认分组`);
     renderSuggestions(pending);
   }
   await refreshFooter();

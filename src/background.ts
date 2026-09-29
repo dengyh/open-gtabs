@@ -51,6 +51,7 @@ import {
 } from './storage';
 import { suggest, findDuplicates, inferTargetGroup, matchTabsToExistingGroups, truncateTitle } from './grouper';
 import type { ExtraHints } from './grouper';
+import { isAIEligible } from './privacy';
 import { completeWithUsage, fetchOllamaModels, isChromeAIAvailable, testConnection } from './llm';
 
 const ALARM_NAME = 'gtabs-check';
@@ -58,10 +59,10 @@ const REORG_ALARM_NAME = 'gtabs-reorg';
 const SNOOZE_ALARM_PREFIX = 'gtabs-snooze-';
 const CTX_ADD_TO_GROUP_ID = 'gtabs-add-to-group';
 const ACTION_CONTEXT_MENUS: chrome.contextMenus.CreateProperties[] = [
-  { id: 'gtabs-organize', title: 'Organize all tabs', contexts: ['action'] },
-  { id: 'gtabs-organize-ungrouped', title: 'Organize ungrouped tabs only', contexts: ['action'] },
-  { id: 'gtabs-undo', title: 'Undo last grouping', contexts: ['action'] },
-  { id: 'gtabs-duplicates', title: 'Find duplicate tabs', contexts: ['action'] },
+  { id: 'gtabs-organize', title: '整理当前窗口标签', contexts: ['action'] },
+  { id: 'gtabs-organize-ungrouped', title: '只整理未分组标签', contexts: ['action'] },
+  { id: 'gtabs-undo', title: '撤销上次分组', contexts: ['action'] },
+  { id: 'gtabs-duplicates', title: '查找重复标签', contexts: ['action'] },
 ];
 
 // In-memory state (session-only, not persisted)
@@ -119,7 +120,7 @@ export function isImportantAppUrl(url: string): boolean {
   );
 }
 
-export function isGroupedTab(tab: { groupId?: number | undefined }): tab is { groupId: number } {
+export function isGroupedTab(tab: { groupId?: number | undefined }): boolean {
   return tab.groupId !== undefined && tab.groupId !== -1;
 }
 
@@ -180,7 +181,7 @@ async function getCurrentWindowId(): Promise<number> {
       win = await chrome.windows.getLastFocused({ populate: false });
     } catch { /* ignore */ }
   }
-  if (win?.id === undefined) throw new Error('Could not determine current window');
+  if (win?.id === undefined) throw new Error('无法确定当前窗口');
   return win.id;
 }
 
@@ -200,12 +201,12 @@ export async function saveCurrentWorkspace(name: string): Promise<void> {
 export async function restoreWorkspaceByName(name: string): Promise<void> {
   const workspaces = await getWorkspaces();
   const ws = workspaces[name];
-  if (!ws) throw new Error(`Workspace "${name}" not found`);
+  if (!ws) throw new Error(`找不到工作区“${name}”`);
 
   const newWin = await chrome.windows.create({ focused: true });
-  if (newWin === undefined) throw new Error('Could not create window');
+  if (newWin === undefined) throw new Error('无法创建窗口');
   const windowId = newWin.id;
-  if (windowId === undefined) throw new Error('Could not create window');
+  if (windowId === undefined) throw new Error('无法创建窗口');
 
   const groupTabIds = new Map<string, { tabIds: number[]; color?: Color }>();
 
@@ -327,7 +328,7 @@ async function rebuildContextMenusNow(): Promise<void> {
 
   await createContextMenu({
     id: CTX_ADD_TO_GROUP_ID,
-    title: 'Add tab to group...',
+    title: '将标签加入分组…',
     contexts: ['page'],
   });
 
@@ -343,7 +344,7 @@ async function rebuildContextMenusNow(): Promise<void> {
     await createContextMenu({
       id: `${CTX_ADD_TO_GROUP_ID}-${group.id}`,
       parentId: CTX_ADD_TO_GROUP_ID,
-      title: group.title || `Group ${group.id}`,
+      title: group.title || `分组 ${group.id}`,
       contexts: ['page'],
     });
   }
@@ -351,7 +352,7 @@ async function rebuildContextMenusNow(): Promise<void> {
   await createContextMenu({
     id: `${CTX_ADD_TO_GROUP_ID}-new`,
     parentId: CTX_ADD_TO_GROUP_ID,
-    title: '+ New group',
+    title: '+ 新建分组',
     contexts: ['page'],
   });
 }
@@ -376,7 +377,7 @@ export async function organize(ungroupedOnly = false): Promise<{ suggestions?: G
       getRejections(),
     ]);
 
-    let tabs = await getTabs();
+    let tabs = (await getTabs()).filter(tab => isAIEligible(tab.url, settings));
     let existingGroupNames: string[] = [];
 
     if (ungroupedOnly || settings.mergeMode) {
@@ -388,22 +389,23 @@ export async function organize(ungroupedOnly = false): Promise<{ suggestions?: G
       try {
         const windowId = await getCurrentWindowId();
         const groups = await chrome.tabGroups.query({ windowId });
-        existingGroupNames = groups.map(g => g.title || '').filter(Boolean);
+        const publicGroupIds = new Set(allTabs.filter(tab => tab.url && isAIEligible(tab.url, settings)).map(tab => tab.groupId));
+        existingGroupNames = groups.filter(g => publicGroupIds.has(g.id)).map(g => g.title || '').filter(Boolean);
       } catch { /* ignore */ }
     }
 
-    if (tabs.length < 2) return { error: 'Need at least 2 tabs to organize' };
+    if (tabs.length < 2) return { error: '至少需要 2 个符合隐私规则的标签才能整理' };
 
     // Check spending cap before any LLM calls
     if (settings.spendingCapUSD > 0) {
       const costs = await getCosts();
       if (costs.totalCost >= settings.spendingCapUSD) {
-        return { error: `Spending cap of $${settings.spendingCapUSD.toFixed(2)} reached. Increase or disable in Settings.` };
+        return { error: `已达到 $${settings.spendingCapUSD.toFixed(2)} 的估算费用上限，可在设置中调整。` };
       }
     }
 
     // Build extra hints from learning data
-    const extraHints: ExtraHints = {};
+    const extraHints: ExtraHints = { existingGroups: existingGroupNames };
     extraHints.affinityHint = formatWeightedAffinityHints(weightedAffinity);
 
     if (settings.enableCorrectionTracking) {
@@ -441,7 +443,7 @@ export async function organize(ungroupedOnly = false): Promise<{ suggestions?: G
       const colorPrefs = await getGroupColorPrefs();
       preMatched = Array.from(matched.entries()).map(([name, matchedTabs]) => ({
         name,
-        color: (colorPrefs[name] ?? 'grey') as const,
+        color: (colorPrefs[name] ?? 'grey') as Color,
         tabs: matchedTabs,
       }));
       tabsForLLM = remaining;
@@ -470,7 +472,7 @@ export async function organize(ungroupedOnly = false): Promise<{ suggestions?: G
 
     return { suggestions: allSuggestions };
   } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Unknown error' };
+    return { error: e instanceof Error ? e.message : '未知错误' };
   }
 }
 
@@ -480,6 +482,13 @@ export async function applyGroups(suggestions: GroupSuggestion[]): Promise<void>
 
   const settings = await getSettings();
   const pinnedSet = new Set(settings.pinnedGroups);
+  const reusableGroups = new Map<string, number>();
+  if (settings.mergeMode) {
+    const windowId = await getCurrentWindowId();
+    for (const group of await chrome.tabGroups.query({ windowId })) {
+      if (group.title && !reusableGroups.has(group.title)) reusableGroups.set(group.title, group.id);
+    }
+  }
 
   // If pinned groups exist, exclude their tabs from ungrouping
   let pinnedTabIds = new Set<number>();
@@ -515,10 +524,14 @@ export async function applyGroups(suggestions: GroupSuggestion[]): Promise<void>
   for (const group of filteredSuggestions) {
     const tabIds = group.tabs.map(t => t.id).filter(id => !pinnedTabIds.has(id));
     if (tabIds.length === 0) continue;
-    const groupId = await groupTabsSafe(tabIds);
+    const existingGroupId = reusableGroups.get(group.name);
+    const groupId = await groupTabsSafe(tabIds, existingGroupId);
     if (groupId === null) continue;
-    const color = (group.name && colorPrefs[group.name]) || group.color;
-    await chrome.tabGroups.update(groupId, { title: group.name, color, collapsed: false });
+    if (existingGroupId === undefined) {
+      const color = (group.name && colorPrefs[group.name]) || group.color;
+      await chrome.tabGroups.update(groupId, { title: group.name, color, collapsed: false });
+      if (settings.mergeMode) reusableGroups.set(group.name, groupId);
+    }
   }
 
   await updateAffinity(filteredSuggestions);
@@ -530,7 +543,7 @@ export async function applyGroups(suggestions: GroupSuggestion[]): Promise<void>
 
 export async function undoLastGrouping(): Promise<{ error?: string }> {
   const snapshot = await getUndoSnapshot();
-  if (!snapshot) return { error: 'No undo history available' };
+  if (!snapshot) return { error: '没有可撤销的分组记录' };
 
   try {
     const currentTabs = await chrome.tabs.query({ currentWindow: true });
@@ -609,8 +622,8 @@ export async function purgeStaleTabs(): Promise<number> {
 
 export async function focusCurrentGroup(): Promise<number> {
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (activeTab?.windowId === undefined) throw new Error('No active tab');
-  if (!isGroupedTab(activeTab)) throw new Error('Active tab must be grouped to focus');
+  if (activeTab?.windowId === undefined) throw new Error('没有当前标签');
+  if (!isGroupedTab(activeTab)) throw new Error('当前标签需要先加入分组');
 
   const groups = await chrome.tabGroups.query({ windowId: activeTab.windowId });
   for (const group of groups) {
@@ -774,7 +787,7 @@ export async function checkGroupDrift(): Promise<{ drifted: boolean; driftedGrou
     const coherence = (maxCount / tabs.length) * 100;
 
     if (coherence < settings.groupDriftThreshold) {
-      driftedGroups.push(group.title || `Group ${group.id}`);
+      driftedGroups.push(group.title || `分组 ${group.id}`);
     }
   }
 
@@ -790,7 +803,7 @@ export async function getMergeSplitSuggestions(): Promise<MergeSplitResult> {
   const groupTabCounts: Map<string, number> = new Map();
 
   for (const group of groups) {
-    const name = group.title || `Group ${group.id}`;
+    const name = group.title || `分组 ${group.id}`;
     const tabs = await chrome.tabs.query({ groupId: group.id });
     const domains = new Set<string>();
     for (const tab of tabs) {
@@ -861,9 +874,10 @@ async function checkAutoTrigger(): Promise<void> {
   const settings = await getSettings();
   if (!settings.autoTrigger) return;
 
-  const tabs = await getTabs();
+  const tabs = (await chrome.tabs.query({ currentWindow: true }))
+    .filter(tab => tab.id !== undefined && isTabUrlAllowed(tab.url) && isAIEligible(tab.url!, settings) && !isGroupedTab(tab));
   if (tabs.length >= settings.threshold) {
-    const result = await organize(settings.mergeMode);
+    const result = await organize(true);
     if (result.suggestions?.length) {
       await applyGroups(result.suggestions);
     }
@@ -1061,7 +1075,7 @@ chrome.runtime.onMessage.addListener((msg: MessageType, _sender, sendResponse) =
             tabs.filter(t => t.url).map(t => hostnameFromUrl(t.url!)).filter(Boolean)
           )];
           groupStats.push({
-            name: group.title || `Group ${group.id}`,
+            name: group.title || `分组 ${group.id}`,
             color: group.color,
             tabCount: tabs.length,
             domains,
@@ -1069,7 +1083,7 @@ chrome.runtime.onMessage.addListener((msg: MessageType, _sender, sendResponse) =
         }
         sendResponse({ type: 'status', status: 'done', groupStats });
       } catch (e) {
-        sendResponse({ type: 'status', status: 'error', error: e instanceof Error ? e.message : 'Failed' });
+        sendResponse({ type: 'status', status: 'error', error: e instanceof Error ? e.message : '失败' });
       }
     })();
     return true;
@@ -1108,28 +1122,28 @@ chrome.runtime.onMessage.addListener((msg: MessageType, _sender, sendResponse) =
   if (msg.type === 'list-workspaces') {
     getWorkspaces()
       .then(ws => sendResponse({ type: 'status', status: 'done', workspaceNames: Object.keys(ws) }))
-      .catch(e => sendResponse({ type: 'status', status: 'error', error: e instanceof Error ? e.message : 'Failed' }));
+      .catch(e => sendResponse({ type: 'status', status: 'error', error: e instanceof Error ? e.message : '失败' }));
     return true;
   }
 
   if (msg.type === 'save-workspace') {
     saveCurrentWorkspace(msg.name)
       .then(() => sendResponse({ type: 'status', status: 'done' }))
-      .catch(e => sendResponse({ type: 'status', status: 'error', error: e instanceof Error ? e.message : 'Failed' }));
+      .catch(e => sendResponse({ type: 'status', status: 'error', error: e instanceof Error ? e.message : '失败' }));
     return true;
   }
 
   if (msg.type === 'restore-workspace') {
     restoreWorkspaceByName(msg.name)
       .then(() => sendResponse({ type: 'status', status: 'done' }))
-      .catch(e => sendResponse({ type: 'status', status: 'error', error: e instanceof Error ? e.message : 'Failed' }));
+      .catch(e => sendResponse({ type: 'status', status: 'error', error: e instanceof Error ? e.message : '失败' }));
     return true;
   }
 
   if (msg.type === 'delete-workspace') {
     removeWorkspace(msg.name)
       .then(() => sendResponse({ type: 'status', status: 'done' }))
-      .catch(e => sendResponse({ type: 'status', status: 'error', error: e instanceof Error ? e.message : 'Failed' }));
+      .catch(e => sendResponse({ type: 'status', status: 'error', error: e instanceof Error ? e.message : '失败' }));
     return true;
   }
 });
@@ -1151,25 +1165,25 @@ chrome.runtime.onInstalled.addListener(() => {
   return rebuildContextMenus();
 });
 
-chrome.contextMenus?.onClicked?.addListener((info) => {
+chrome.contextMenus?.onClicked?.addListener((info, tab) => {
   if (info.menuItemId === 'gtabs-organize') void organize().catch(() => {});
   if (info.menuItemId === 'gtabs-organize-ungrouped') void organize(true).catch(() => {});
   if (info.menuItemId === 'gtabs-undo') void undoLastGrouping().catch(() => {});
   if (info.menuItemId === 'gtabs-duplicates') void findDuplicateTabs().catch(() => {});
 
   const menuId = String(info.menuItemId);
-  if (menuId === `${CTX_ADD_TO_GROUP_ID}-new` && info.tab?.id !== undefined) {
-    const tabId = info.tab.id;
+  if (menuId === `${CTX_ADD_TO_GROUP_ID}-new` && tab?.id !== undefined) {
+    const tabId = tab.id;
     (async () => {
       const newGroupId = await groupTabsSafe([tabId]);
       if (newGroupId === null) return;
-      await chrome.tabGroups.update(newGroupId, { title: 'New Group', collapsed: false });
+      await chrome.tabGroups.update(newGroupId, { title: '新建分组', collapsed: false });
       await rebuildContextMenus();
     })();
-  } else if (menuId.startsWith(`${CTX_ADD_TO_GROUP_ID}-`) && info.tab?.id !== undefined) {
+  } else if (menuId.startsWith(`${CTX_ADD_TO_GROUP_ID}-`) && tab?.id !== undefined) {
     const groupId = Number(menuId.slice(CTX_ADD_TO_GROUP_ID.length + 1));
     if (Number.isInteger(groupId) && groupId > 0 && groupId < MAX_CONTEXT_GROUP_ID) {
-      void groupTabsSafe([info.tab.id], groupId);
+      void groupTabsSafe([tab.id], groupId);
     }
   }
 });
@@ -1262,7 +1276,7 @@ chrome.tabs.onActivated?.addListener((activeInfo: { tabId: number }) => {
 });
 
 chrome.storage?.onChanged?.addListener((changes, areaName) => {
-  if (areaName === 'sync' && changes.settings) {
+  if (areaName === 'local' && changes.settings) {
     setupReorgAlarm();
   }
 });

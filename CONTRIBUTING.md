@@ -1,0 +1,69 @@
+# 二次开发指南
+
+## 许可和基线
+
+上游：https://github.com/vaddisrinivas/gtabs
+
+基线版本 0.5.1，提交 `634b564fd30a6892f11b08ffa652df0863e1f708`。许可 MIT，版权仍归原作者；本仓库在独立 GitHub 仓库中保留上游历史。修改或再分发时必须保留 LICENSE，发布包也包含 LICENSE / NOTICE。
+
+## 开发环境
+
+使用 Node.js 22.14+（`.nvmrc` 指向 22）。
+
+```sh
+npm ci --ignore-scripts
+npm run typecheck
+npm test
+npm run build
+npm run package
+```
+
+`npm run dev` 监听源码并重建。Chrome 仍需在扩展管理页重新加载 Service Worker；设置页 / 弹窗也需刷新。测试模拟浏览器 API 和模型请求，不会调用真实模型或修改日常浏览标签。
+
+## 源码入口
+
+| 路径 | 职责 |
+| --- | --- |
+| `manifest.json` | Chrome 权限、入口、快捷键、版本、网络安全策略 |
+| `src/background.ts` | 标签事件、自动触发、分组应用、同名组复用、撤销和本地学习 |
+| `src/grouper.ts` | 规则预分配、中文标题匹配、模型提示、JSON 校验、遗漏标签处理 |
+| `src/privacy.ts` | AI 站点排除、内网主机判断、网址脱敏 |
+| `src/llm.ts` | 本机地址校验、请求超时、拒绝重定向、TT Switch / Ollama / Chrome AI |
+| `src/storage.ts` | 本地存储、旧版同步迁移、导入导出和 Token 隔离 |
+| `src/types.ts` | 数据结构、默认设置、模型预设、颜色中文名称 |
+| `src/options.*` | 中文设置界面与自动保存 |
+| `src/popup.*` | 中文分组预览、应用、搜索、撤销 |
+| `test/` | 模拟 Chrome 的单元与集成测试，隐私边界回归测试 |
+| `build.mjs` | 打包脚本、资源与许可复制 |
+
+调用流程：界面发消息 → 后台筛选当前窗口 → 应用隐私过滤 / 本地规则 → 脱敏后请求模型 → 校验 JSON 和标签 ID → 用户确认或自动应用 → 更新本地学习记录。
+
+## 常见改动
+
+- **换 TT Switch 模型**：直接在设置页填写模型 ID，无需改源码。只有改变协议 / 服务路由时才改 `llm.ts`。
+- **调整中文文案**：修改 `options.html`、`popup.html` 和对应 TypeScript 的可见文案，不要翻译消息类型、颜色协议值或模型 ID。
+- **调整分组策略**：修改 `grouper.ts`，保留合法标签 ID 校验、每标签只分配一次和安全过滤。模型输出不能变成可执行脚本。
+- **扩展服务商**：本版故意限制本机服务。新增外部服务必须同时评估 `manifest.json` 的主机权限 / CSP、`llm.ts` 校验、Token 归属和数据发送提示，不能仅放开地址输入框。
+- **新增隐私设置**：同时更新类型、默认值、存储输入校验、界面、导入迁移和测试。站点排除必须在模型请求之前生效。
+- **自动整理**：保持冷却和进行中保护；只对目标窗口操作。定时器属于 Chrome alarms，不保证休眠时准点执行。
+
+## 验证
+
+提交前运行类型检查、测试、构建和 `npm audit`。浏览器体验使用独立测试窗口与公开页面；避免拿工作内网标签作为模型联调样本。检查 Token 不在 Git diff、日志或导出中。UI 验证至少覆盖中文设置、连接成功、分组建议、应用、已有组复用与撤销。
+
+## 上游同步
+
+```sh
+git remote add upstream https://github.com/vaddisrinivas/gtabs.git  # 尚无此 remote 时
+git fetch upstream
+git switch -c sync-upstream
+# 按需合并或挑选提交，并审查权限、网络目的地、存储与提示词差异。
+```
+
+不要直接覆盖本版的隐私边界和网络限制。原上游云端预设及 Anthropic 直连测试已经移除，保留了本机 OpenAI 兼容协议及拦截外部地址的测试。
+
+## 发布
+
+同步更新 manifest 的数字版本、version_name、package.json 和 CHANGELOG。`npm run package` 生成 `gtabs-extension.zip`，用户解压后加载目录。该包不含源码映射、Token 或浏览器存储。
+
+GitHub Actions 的 CI 对 main 和 PR 执行检查并上传 dist 产物；推送 `v*` 标签会执行检查并创建带 zip 的 GitHub Release。源码提交不等于发布到 Chrome Web Store，本仓库不会自动向商店提交。

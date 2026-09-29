@@ -31,9 +31,9 @@ describe('E2E Integration: Message dispatch → Background → Storage', () => {
     const { saveSettings } = await import('../src/storage');
     await saveSettings({
       ...DEFAULT_SETTINGS,
-      provider: 'openai',
+      provider: 'tt-switch',
       apiKey: 'test-key',
-      baseUrl: 'https://api.test.com/v1',
+      baseUrl: 'http://127.0.0.1:15721/tencent/v1',
       model: 'gpt-4.1',
     });
   });
@@ -130,7 +130,7 @@ describe('E2E Integration: Message dispatch → Background → Storage', () => {
   it('undo returns error when no snapshot exists', async () => {
     const res = await sendMsg({ type: 'undo' });
     expect(res.error).toBeDefined();
-    expect(res.error).toContain('No undo history');
+    expect(res.error).toContain('没有可撤销');
   });
 
   // ─── Find Duplicates ──────────────────────────────────────────────────────
@@ -229,7 +229,7 @@ describe('E2E Integration: Message dispatch → Background → Storage', () => {
   it('restore-workspace returns error for unknown name', async () => {
     const res = await sendMsg({ type: 'restore-workspace', name: 'ghost' });
     expect(res.status).toBe('error');
-    expect(res.error).toContain('not found');
+    expect(res.error).toContain('找不到工作区');
   });
 
   it('delete-workspace removes workspace', async () => {
@@ -517,7 +517,7 @@ describe('E2E Integration: Message dispatch → Background → Storage', () => {
     });
     vi.mocked(chrome.tabGroups.query).mockResolvedValue([
       { id: 5, title: 'Active' },
-      { id: 6, title: 'Other' },
+      { id: 6, title: '其他' },
     ] as any);
 
     const res = await sendMsg({ type: 'focus-group' });

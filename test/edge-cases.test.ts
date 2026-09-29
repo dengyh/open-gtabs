@@ -295,7 +295,7 @@ describe('saveCurrentWorkspace', () => {
   it('throws when window id is undefined', async () => {
     vi.mocked(chrome.windows.getCurrent).mockResolvedValue({} as any);
     vi.mocked(chrome.windows.getLastFocused).mockResolvedValue({} as any);
-    await expect(saveCurrentWorkspace('fail')).rejects.toThrow('Could not determine current window');
+    await expect(saveCurrentWorkspace('fail')).rejects.toThrow('无法确定当前窗口');
   });
 });
 
@@ -303,7 +303,7 @@ describe('saveCurrentWorkspace', () => {
 
 describe('restoreWorkspaceByName', () => {
   it('throws when workspace not found', async () => {
-    await expect(restoreWorkspaceByName('nonexistent')).rejects.toThrow('not found');
+    await expect(restoreWorkspaceByName('nonexistent')).rejects.toThrow('找不到工作区');
   });
 
   it('opens a new window and creates tabs', async () => {
@@ -338,7 +338,7 @@ describe('restoreWorkspaceByName', () => {
   it('throws when window create returns undefined', async () => {
     await saveWorkspace('ws', { name: 'ws', savedAt: 1, tabs: [{ url: 'https://x.com', title: 'X', pinned: false, active: false }] });
     vi.mocked(chrome.windows.create).mockResolvedValue(undefined as any);
-    await expect(restoreWorkspaceByName('ws')).rejects.toThrow('Could not create window');
+    await expect(restoreWorkspaceByName('ws')).rejects.toThrow('无法创建窗口');
   });
 
   it('recreates tab groups from saved workspace', async () => {
@@ -413,7 +413,7 @@ describe('getTabs – edge cases', () => {
 describe('organize – edge cases', () => {
   beforeEach(async () => {
     const { saveSettings } = await import('../src/storage');
-    await saveSettings({ ...DEFAULT_SETTINGS, provider: 'openai', apiKey: 'test', baseUrl: 'https://api.test.com/v1', model: 'test' });
+    await saveSettings({ ...DEFAULT_SETTINGS, provider: 'tt-switch', apiKey: 'test', baseUrl: 'http://127.0.0.1:15721/tencent/v1', model: 'test' });
   });
 
   it('returns error for exactly 1 tab', async () => {

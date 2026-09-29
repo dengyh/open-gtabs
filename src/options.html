@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
-<title>gTabs Settings</title>
+<title>gTabs 设置</title>
 <style>
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -220,67 +220,49 @@
 
   <div class="page-header">
     <div class="logo-mark">🗂️</div>
-    <div><h1>gTabs Settings</h1><p>Configure your AI tab organizer</p></div>
+    <div><h1>gTabs 设置</h1><p>TT Switch 中文适配版 · 设置自动保存</p></div>
   </div>
 
   <!-- Tab bar -->
   <div class="tab-bar">
-    <button class="tab-btn active" data-tab="provider">🤖 Provider</button>
-    <button class="tab-btn" data-tab="behavior">⚙️ Behavior</button>
-    <button class="tab-btn" data-tab="rules">🔒 Rules</button>
-    <button class="tab-btn" data-tab="tools">⚡ Tools</button>
+    <button class="tab-btn active" data-tab="provider">🤖 模型服务</button>
+    <button class="tab-btn" data-tab="behavior">⚙️ 整理方式</button>
+    <button class="tab-btn" data-tab="rules">🔒 分组规则</button>
+    <button class="tab-btn" data-tab="tools">⚡ 实用工具</button>
   </div>
 
   <!-- ═══ TAB: Provider ═══ -->
   <div class="tab-panel active" data-tab="provider">
     <div class="section">
-      <div class="section-header"><div class="section-icon">🤖</div><h2>LLM Provider</h2></div>
+      <div class="section-header"><div class="section-icon">🤖</div><h2>模型服务</h2></div>
       <div class="provider-grid" id="provider-grid"></div>
 
       <!-- Chrome AI setup guide — shown when chrome-ai selected but unavailable -->
       <div class="chrome-ai-setup hidden" id="chrome-ai-setup">
-        <h3>⚡ Enable Chrome Built-in AI (Gemini Nano)</h3>
-        <div class="setup-steps">
-          <div class="setup-step">
-            <span class="step-num">1</span>
-            <div class="step-body">
-              Paste this into Chrome's address bar and set to <strong>Enabled</strong>:
-              <div class="flag-row">
-                <code>chrome://flags/#prompt-api-for-gemini-nano</code>
-                <button class="copy-btn" data-copy="chrome://flags/#prompt-api-for-gemini-nano">Copy</button>
-              </div>
-            </div>
-          </div>
-          <div class="setup-step">
-            <span class="step-num">2</span>
-            <div class="step-body">
-              Paste this and set to <strong>Enabled BypassPerfRequirement</strong>:
-              <div class="flag-row">
-                <code>chrome://flags/#optimization-guide-on-device-model</code>
-                <button class="copy-btn" data-copy="chrome://flags/#optimization-guide-on-device-model">Copy</button>
-              </div>
-            </div>
-          </div>
-          <div class="setup-step">
-            <span class="step-num">3</span>
-            <div class="step-body"><strong>Relaunch Chrome</strong>, then click <strong>Check again</strong> below. The Gemini model downloads automatically (~1 GB) in the background.</div>
-          </div>
-        </div>
+        <h3>⚡ Chrome 内置 AI（Gemini Nano）</h3>
+        <p class="step-body" style="margin-bottom:14px">当前浏览器尚未提供可用的内置模型接口。支持情况取决于 Chrome 版本、设备条件和模型下载状态。可以重新检测，或改用 TT Switch。</p>
         <div class="setup-actions">
-          <button class="btn btn-sm" id="chrome-ai-check-btn">Check again</button>
-          <button class="btn-ghost btn-sm" id="chrome-ai-skip-btn">Use Groq instead</button>
+          <button class="btn btn-sm" id="chrome-ai-check-btn">重新检测</button>
+          <button class="btn-ghost btn-sm" id="chrome-ai-skip-btn">改用 TT Switch</button>
         </div>
       </div>
 
       <div class="form-group hidden" id="key-row">
-        <label>API Key <a id="signup-link" href="#" target="_blank" hidden>Get free key →</a></label>
-        <input type="password" id="apiKey" placeholder="sk-..." />
-        <div class="slider-desc" style="margin-top:6px">Cloud providers receive tab titles and URLs to generate groups.</div>
+        <label for="apiKey">API Token <a id="signup-link" href="#" target="_blank" hidden>查看服务说明 →</a></label>
+        <input type="password" id="apiKey" placeholder="从 TT Switch 复制 API Token" />
+        <div class="slider-desc" style="margin-top:6px">TT Switch 会将标签标题和脱敏网址转发给所选模型服务；本机代理不等于离线推理。</div>
+      </div>
+      <div class="form-group hidden" id="custom-endpoint-row">
+        <label for="base-url">TT Switch 接口地址</label>
+        <input type="text" id="base-url" placeholder="http://127.0.0.1:15721/tencent/v1" />
+        <label for="custom-model" style="margin-top:12px">模型 ID</label>
+        <input type="text" id="custom-model" placeholder="gemini-3.5-flash" />
+        <div class="slider-desc" style="margin-top:6px">API Token 填 TT Switch → 通用 API → 腾讯内网通用服务的 API Token。标题和网址会经 TT Switch 发给所选模型。密钥以本地明文存储，不通过 Chrome 同步。网址参数、片段和账号密码不会发送；标题和路径仍可能包含敏感内容。</div>
       </div>
       <div class="form-row" style="margin-top:14px">
-        <div class="form-group"><label>Model</label><select id="model-select"></select></div>
+        <div class="form-group" id="model-select-row"><label for="model-select">模型</label><select id="model-select"></select></div>
         <div class="form-action" style="display:flex;align-items:center;gap:8px">
-          <button class="btn btn-sm" id="test-btn">Test</button>
+          <button class="btn btn-sm" id="test-btn">测试连接</button>
           <span class="test-result" id="test-result"></span>
         </div>
       </div>
@@ -290,45 +272,53 @@
   <!-- ═══ TAB: Behavior ═══ -->
   <div class="tab-panel" data-tab="behavior">
     <div class="section">
-      <div class="section-header"><div class="section-icon">⚡️</div><h2>Organization</h2></div>
+      <div class="section-header"><div class="section-icon">🛡️</div><h2>隐私与数据发送</h2></div>
+      <p class="slider-desc" style="margin-bottom:14px">仅发送待整理标签的标题和脱敏网址（域名、路径）。不发送网址账号密码、查询参数、片段或历史学习记录。复用分组时会发送含可参与整理标签的现有分组名称。标题和路径仍可能包含敏感信息，请将工作内网站点加入排除列表。</p>
+      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="excludePrivateHosts" aria-label="排除内网地址" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>排除内网地址</span><p>忽略私有 IPv4、IPv6 地址、localhost、单标签主机名及 .local / .internal 等地址。不查询 DNS；公司公网域名需手动排除。</p></div></div>
+      <label for="excludedDomains">不发送给 AI 的域名</label>
+      <textarea id="excludedDomains" rows="4" placeholder="example.com&#10;*.company.example" style="width:100%;margin-top:8px;padding:10px;background:rgba(0,0,0,.3);color:var(--text);border:1px solid var(--border);border-radius:8px"></textarea>
+      <p class="slider-desc">每行一个域名，同时匹配其子域名；也支持逗号分隔。排除仅约束 AI，本地手动分组和规则仍可使用。全部设置和规则仅保存在本机。</p>
+    </div>
+    <div class="section">
+      <div class="section-header"><div class="section-icon">⚡️</div><h2>标签整理</h2></div>
 
       <div class="slider-group">
-        <div class="slider-header"><div><div class="slider-label">Max Groups</div><div class="slider-desc">Limit the number of tab groups AI creates</div></div><span class="slider-val" id="maxGroupsVal">6</span></div>
+        <div class="slider-header"><div><div class="slider-label">最多分组数</div><div class="slider-desc">限制 AI 为本次待整理标签生成的分组数量</div></div><span class="slider-val" id="maxGroupsVal">6</span></div>
         <input type="range" id="maxGroups" min="2" max="15" value="6" />
       </div>
       <div class="slider-group">
-        <div class="slider-header"><div><div class="slider-label">Auto-organize Threshold</div><div class="slider-desc">Trigger AI when ungrouped tab count reaches this</div></div><span class="slider-val" id="thresholdVal">5</span></div>
+        <div class="slider-header"><div><div class="slider-label">自动整理阈值</div><div class="slider-desc">可参与 AI 整理的未分组标签达到此数量时触发</div></div><span class="slider-val" id="thresholdVal">5</span></div>
         <input type="range" id="threshold" min="2" max="25" value="5" />
       </div>
       <div class="slider-group" style="margin-bottom:20px">
-        <div class="slider-header"><div><div class="slider-label">Title Truncation</div><div class="slider-desc">Max tab title characters sent to the LLM</div></div><span class="slider-val" id="maxTitleVal">80</span></div>
+        <div class="slider-header"><div><div class="slider-label">标题长度限制</div><div class="slider-desc">发送给模型的单个标签标题最大字符数</div></div><span class="slider-val" id="maxTitleVal">80</span></div>
         <input type="range" id="maxTitleLength" min="20" max="200" value="80" step="5" />
       </div>
 
-      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="autoTrigger" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>Auto-organize</span><p>Silently run AI grouping when ungrouped tabs exceed your threshold.</p></div></div>
-      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="mergeMode" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>Protect Existing Groups</span><p>Only organize ungrouped tabs — never reshuffle existing groups.</p></div></div>
-      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="silentAutoAdd" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>Zero-LLM Fast Routing</span><p>Instantly route new tabs via domain affinity — no AI calls.</p></div></div>
-      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="autoPinApps" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>Auto-pin Web Apps</span><p>Pin Gmail, Calendar, Slack, Spotify to the left automatically.</p></div></div>
-      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="smartUngroup" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>Smart Ungrouping</span><p>Auto-remove tabs from groups when navigating to unrelated domains.</p></div></div>
+      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="autoTrigger" aria-label="自动整理" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>自动整理</span><p>达到阈值后自动调用模型并应用分组；新标签加载完成和定时检查均可触发。</p></div></div>
+      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="mergeMode" aria-label="保护并复用已有分组" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>保护并复用已有分组</span><p>只整理未分组标签；建议名称与已有分组相同时直接加入。</p></div></div>
+      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="silentAutoAdd" aria-label="本地规则快速归组" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>本地规则快速归组</span><p>根据域名规则和本机学习记录，把新标签直接加入对应分组，不调用模型。</p></div></div>
+      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="autoPinApps" aria-label="自动固定网页应用" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>自动固定网页应用</span><p>自动将 Gmail、日历、Slack、Spotify 等固定在标签栏左侧。</p></div></div>
+      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="smartUngroup" aria-label="智能移出分组" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>智能移出分组</span><p>标签跳转到不相关的域名后，自动移出原分组。</p></div></div>
     </div>
 
     <div class="section">
-      <div class="section-header"><div class="section-icon">🧠</div><h2>Learning</h2><span class="section-desc">Improve over time</span></div>
-      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="enableCorrectionTracking" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>Correction Tracking</span><p>Learn from group renames and tab moves — corrections count 3x.</p></div></div>
-      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="enableRejectionMemory" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>Rejection Memory</span><p>Remember removed groups and avoid repeating those groupings.</p></div></div>
-      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="enableGroupDrift" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>Group Drift Detection</span><p>Warn when groups become incoherent and need refreshing.</p></div></div>
-      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="enablePatternMining" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>Pattern Mining</span><p>Analyze history to find domains frequently grouped together.</p></div></div>
+      <div class="section-header"><div class="section-icon">🧠</div><h2>本地学习</h2><span class="section-desc">保存在本机</span></div>
+      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="enableCorrectionTracking" aria-label="记录手动调整" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>记录手动调整</span><p>记录分组改名和标签移动，手动修正的权重为普通记录的三倍。</p></div></div>
+      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="enableRejectionMemory" aria-label="记住拒绝的分组" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>记住拒绝的分组</span><p>记住被移除的分组建议，减少重复推荐。</p></div></div>
+      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="enableGroupDrift" aria-label="分组一致性检查" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>分组一致性检查</span><p>当组内主题变得分散时，提示需要重新整理。</p></div></div>
+      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="enablePatternMining" aria-label="分析常见组合" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>分析常见组合</span><p>在本机分析整理历史，记录经常出现在同一组的域名。</p></div></div>
       <div class="slider-group" style="margin-top:16px">
-        <div class="slider-header"><div><div class="slider-label">Drift Threshold</div><div class="slider-desc">Coherence % below which a group is flagged</div></div><span class="slider-val" id="driftThresholdVal">50</span></div>
+        <div class="slider-header"><div><div class="slider-label">一致性阈值</div><div class="slider-desc">分组一致性低于此百分比时标记提示</div></div><span class="slider-val" id="driftThresholdVal">50</span></div>
         <input type="range" id="groupDriftThreshold" min="20" max="80" value="50" step="5" />
       </div>
     </div>
 
     <div class="section">
-      <div class="section-header"><div class="section-icon">📅</div><h2>Scheduled Re-org</h2></div>
-      <div class="form-group"><label>Schedule</label><select id="reorgSchedule"><option value="off">Off</option><option value="daily">Daily</option><option value="weekly">Weekly</option></select></div>
+      <div class="section-header"><div class="section-icon">📅</div><h2>定时重新整理</h2></div>
+      <div class="form-group"><label>执行频率</label><select id="reorgSchedule"><option value="off">关闭</option><option value="daily">每天</option><option value="weekly">每周</option></select></div>
       <div class="slider-group" style="margin-top:16px">
-        <div class="slider-header"><div><div class="slider-label">Time of Day</div><div class="slider-desc">Hour (0-23) when scheduled re-org runs</div></div><span class="slider-val" id="reorgTimeVal">9</span></div>
+        <div class="slider-header"><div><div class="slider-label">执行时间</div><div class="slider-desc">按本机时区执行，填写小时（0–23）</div></div><span class="slider-val" id="reorgTimeVal">9</span></div>
         <input type="range" id="reorgTime" min="0" max="23" value="9" />
       </div>
     </div>
@@ -337,21 +327,21 @@
   <!-- ═══ TAB: Rules ═══ -->
   <div class="tab-panel" data-tab="rules">
     <div class="section">
-      <div class="section-header"><div class="section-icon">📌</div><h2>Pinned Groups</h2><span class="section-desc">Survive re-organization</span></div>
+      <div class="section-header"><div class="section-icon">📌</div><h2>锁定分组</h2><span class="section-desc">重新整理时保留</span></div>
       <div id="pinned-groups"></div>
       <div class="form-row" style="margin-top:10px">
-        <div class="form-group"><input type="text" id="new-pinned-group" placeholder="Group name to pin" /></div>
-        <div class="form-action"><button class="btn-ghost btn-sm" id="add-pinned">+ Pin</button></div>
+        <div class="form-group"><input type="text" id="new-pinned-group" placeholder="输入要锁定的分组名称" /></div>
+        <div class="form-action"><button class="btn-ghost btn-sm" id="add-pinned">+ 锁定</button></div>
       </div>
     </div>
 
     <div class="section">
-      <div class="section-header"><div class="section-icon">🔒</div><h2>Domain Rules</h2><span class="section-desc">Always override AI</span></div>
+      <div class="section-header"><div class="section-icon">🔒</div><h2>域名分组规则</h2><span class="section-desc">优先于模型建议</span></div>
       <div id="domain-rules"></div>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        <button class="btn-ghost" style="flex:1" id="add-rule">+ Add Rule</button>
-        <button class="btn-ghost" id="export-rules-csv">⬇ Export CSV</button>
-        <button class="btn-ghost" id="import-rules-csv">⬆ Import CSV</button>
+        <button class="btn-ghost" style="flex:1" id="add-rule">+ 添加规则</button>
+        <button class="btn-ghost" id="export-rules-csv">⬇ 导出 CSV</button>
+        <button class="btn-ghost" id="import-rules-csv">⬆ 导入 CSV</button>
       </div>
       <input type="file" id="import-rules-file" accept=".csv" hidden />
     </div>
@@ -360,54 +350,54 @@
   <!-- ═══ TAB: Tools ═══ -->
   <div class="tab-panel" data-tab="tools">
     <div class="section">
-      <div class="section-header"><div class="section-icon">⚡</div><h2>Power Tools</h2></div>
+      <div class="section-header"><div class="section-icon">⚡</div><h2>实用工具</h2></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-        <button class="btn-ghost" id="tool-duplicates">🧬 Find Duplicates</button>
-        <button class="btn-ghost" id="tool-focus">🎯 Focus Mode</button>
-        <button class="btn-ghost" id="tool-sort">🔤 Sort Groups</button>
-        <button class="btn-ghost danger" id="tool-clear">🧹 Clear All Groups</button>
-        <button class="btn-ghost" id="tool-export-md">📋 Export Markdown</button>
+        <button class="btn-ghost" id="tool-duplicates">🧬 查找重复标签</button>
+        <button class="btn-ghost" id="tool-focus">🎯 专注当前分组</button>
+        <button class="btn-ghost" id="tool-sort">🔤 分组排序</button>
+        <button class="btn-ghost danger" id="tool-clear">🧹 取消全部分组</button>
+        <button class="btn-ghost" id="tool-export-md">📋 导出 Markdown</button>
       </div>
       <div id="tool-status" style="font-size:11px;color:#7c6af5;min-height:16px;font-weight:600;font-family:var(--font-display);margin-bottom:8px"></div>
       <div id="tool-results"></div>
 
       <hr style="border:none;border-top:1px solid var(--border);margin:16px 0" />
-      <div class="sub-label">💤 Snooze Active Tab</div>
+      <div class="sub-label">💤 暂存当前标签</div>
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
         <select id="tool-snooze-duration" style="flex:1;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 8px;font-size:12px">
-          <option value="3600000">1 hour</option><option value="10800000">3 hours</option><option value="28800000">8 hours</option><option value="86400000" selected>Tomorrow</option><option value="604800000">Next week</option>
+          <option value="3600000">1 小时后</option><option value="10800000">3 小时后</option><option value="28800000">8 小时后</option><option value="86400000" selected>明天</option><option value="604800000">下周</option>
         </select>
-        <button class="btn-ghost" id="tool-snooze">Snooze</button>
+        <button class="btn-ghost" id="tool-snooze">暂存</button>
       </div>
 
       <hr style="border:none;border-top:1px solid var(--border);margin:16px 0" />
-      <div class="sub-label">💾 Workspaces</div>
+      <div class="sub-label">💾 工作区</div>
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
-        <input type="text" id="tool-workspace-name" placeholder="Save current as workspace..." style="flex:1" />
-        <button class="btn-ghost" id="tool-workspace-save">Save</button>
+        <input type="text" id="tool-workspace-name" placeholder="将当前窗口保存为工作区…" style="flex:1" />
+        <button class="btn-ghost" id="tool-workspace-save">保存</button>
       </div>
       <div id="tool-workspace-list"></div>
     </div>
 
     <div class="section">
-      <div class="section-header"><div class="section-icon">📊</div><h2>Data &amp; Usage</h2></div>
+      <div class="section-header"><div class="section-icon">📊</div><h2>数据与用量</h2></div>
       <div class="slider-group">
-        <div class="slider-header"><div><div class="slider-label">Stale Tab Age (Hours)</div><div class="slider-desc">Tabs older than this can be purged</div></div><span class="slider-val" id="staleVal">48</span></div>
+        <div class="slider-header"><div><div class="slider-label">闲置标签时长（小时）</div><div class="slider-desc">超过此时长的标签可作为闲置标签处理</div></div><span class="slider-val" id="staleVal">48</span></div>
         <input type="range" id="staleTabThresholdHours" min="1" max="168" value="48" />
       </div>
       <div class="slider-group" style="margin-bottom:20px">
-        <div class="slider-header"><div><div class="slider-label">Spending Cap (USD)</div><div class="slider-desc">Stops AI calls at this cost (0 = unlimited)</div></div><span class="slider-val" id="spendingCapVal">0</span></div>
+        <div class="slider-header"><div><div class="slider-label">估算费用上限（美元）</div><div class="slider-desc">仅针对已知定价的估算；不代表 TT Switch 实际额度。0 为不限。</div></div><span class="slider-val" id="spendingCapVal">0</span></div>
         <input type="range" id="spendingCapUSD" min="0" max="100" value="0" step="1" />
       </div>
       <div class="data-actions">
-        <button class="btn-ghost btn-sm" id="export-data">Export Settings</button>
-        <button class="btn-ghost btn-sm" id="import-data">Import Settings</button>
+        <button class="btn-ghost btn-sm" id="export-data">导出设置</button>
+        <button class="btn-ghost btn-sm" id="import-data">导入设置</button>
         <input type="file" id="import-file" accept=".json" hidden />
       </div>
       <div class="stats-chip" id="stats-line"></div>
       <div style="overflow-x:auto">
         <table class="cost-table" id="cost-table" hidden>
-          <thead><tr><th>Provider</th><th>Input Tokens</th><th>Output Tokens</th><th>Est. Cost</th></tr></thead>
+          <thead><tr><th>模型服务</th><th>输入 Token</th><th>输出 Token</th><th>估算费用</th></tr></thead>
           <tbody id="cost-body"></tbody>
         </table>
       </div>

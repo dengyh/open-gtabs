@@ -13,6 +13,8 @@ const common = {
 rmSync('dist', { recursive: true, force: true });
 mkdirSync('dist', { recursive: true });
 cpSync('manifest.json', 'dist/manifest.json');
+cpSync('LICENSE', 'dist/LICENSE');
+cpSync('NOTICE', 'dist/NOTICE');
 cpSync('src/popup.html', 'dist/popup.html');
 cpSync('src/options.html', 'dist/options.html');
 

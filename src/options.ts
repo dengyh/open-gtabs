@@ -1,5 +1,6 @@
+import type { MessageType } from './types';
 import type { Settings, DomainRule, Color, ProviderPreset } from './types';
-import { DEFAULT_SETTINGS, PROVIDERS, COLORS } from './types';
+import { DEFAULT_SETTINGS, PROVIDERS, COLORS, COLOR_LABELS } from './types';
 import { getSettings, saveSettings, getDomainRules, saveDomainRules } from './storage';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -21,8 +22,14 @@ try {
 
 const providerGrid = $<HTMLDivElement>('provider-grid');
 const keyRow = $<HTMLDivElement>('key-row');
+const inExcludePrivateHosts = $<HTMLInputElement>('excludePrivateHosts');
+const inExcludedDomains = $<HTMLTextAreaElement>('excludedDomains');
 const inApiKey = $<HTMLInputElement>('apiKey');
 const modelSelect = $<HTMLSelectElement>('model-select');
+const customEndpointRow = $<HTMLDivElement>('custom-endpoint-row');
+const modelSelectRow = $<HTMLDivElement>('model-select-row');
+const inBaseUrl = $<HTMLInputElement>('base-url');
+const inCustomModel = $<HTMLInputElement>('custom-model');
 const testBtn = $<HTMLButtonElement>('test-btn');
 const signupLink = $<HTMLAnchorElement>('signup-link');
 const testResult = $<HTMLSpanElement>('test-result');
@@ -71,7 +78,7 @@ function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function sendMsg(msg: Record<string, unknown>): Promise<Record<string, unknown> | undefined> {
+function sendMsg(msg: Record<string, unknown>): Promise<(Partial<Extract<MessageType, { type: 'status' }>> & { available?: boolean }) | undefined> {
   return new Promise(resolve => chrome.runtime.sendMessage(msg, resolve));
 }
 
@@ -95,8 +102,8 @@ function renderProviderCards(selectedId: string) {
     if (p.isBuiltIn && !chromeAIAvailable) card.className += ' disabled';
 
     let badge = '';
-    if (p.isBuiltIn) badge = `<div class="badge local">${chromeAIAvailable ? 'FREE' : 'N/A'}</div>`;
-    else if (p.canFetchModels) badge = '<div class="badge local">LOCAL</div>';
+    if (p.isBuiltIn) badge = `<div class="badge local">${chromeAIAvailable ? '本机' : '不可用'}</div>`;
+    else if (p.canFetchModels) badge = '<div class="badge local">本机</div>';
     card.innerHTML = `<div class="name">${esc(p.name)}</div>${badge}`;
     if (p.id === selectedId && p.helpText) {
       card.innerHTML += `<div style="font-size:10px;color:#9aa0a6;margin-top:4px">${esc(p.helpText)}</div>`;
@@ -120,10 +127,17 @@ function hideChromeAISetup() {
 }
 
 function selectProvider(p: ProviderPreset) {
+  if (currentProvider?.id !== p.id && (currentProvider?.customEndpoint || p.customEndpoint)) {
+    inApiKey.value = '';
+  }
   currentProvider = p;
 
   // Update UI
   renderProviderCards(p.id);
+  customEndpointRow.classList.toggle('hidden', !p.customEndpoint);
+  modelSelectRow.classList.toggle('hidden', !!p.customEndpoint);
+  inBaseUrl.value = p.baseUrl;
+  inCustomModel.value = p.models[0] || '';
 
   // Show/hide key row + signup link
   keyRow.classList.toggle('hidden', !p.needsKey);
@@ -148,7 +162,7 @@ function selectProvider(p: ProviderPreset) {
 function populateModels(models: string[]) {
   modelSelect.innerHTML = '';
   if (!models.length) {
-    modelSelect.innerHTML = '<option value="">No models available</option>';
+    modelSelect.innerHTML = '<option value="">暂无可用模型</option>';
     return;
   }
   for (const m of models) {
@@ -163,27 +177,28 @@ function populateModels(models: string[]) {
 
 async function fetchOllamaModels() {
   const origText = modelSelect.innerHTML;
-  modelSelect.innerHTML = '<option>Loading models...</option>';
+  modelSelect.innerHTML = '<option>正在加载模型…</option>';
   try {
     const res = await sendMsg({ type: 'fetch-ollama-models' });
     if (res?.models?.length) {
       populateModels(res.models);
     } else {
-      modelSelect.innerHTML = '<option value="">Ollama not running</option>';
+      modelSelect.innerHTML = '<option value="">Ollama 尚未运行</option>';
     }
   } catch {
-    modelSelect.innerHTML = '<option value="">Connection failed</option>';
+    modelSelect.innerHTML = '<option value="">连接失败</option>';
   }
 }
 
 // --- Save ---
 
 async function save() {
+  testResult.textContent = '';
   const p = currentProvider;
   if (!p) return;
 
-  const model = modelSelect.value;
-  const baseUrl = p.baseUrl;
+  const model = p.customEndpoint ? inCustomModel.value.trim() : modelSelect.value;
+  const baseUrl = p.customEndpoint ? inBaseUrl.value.trim().replace(/\/+$/, '') : p.baseUrl;
 
   // Preserve pinnedGroups from current settings (managed separately)
   const current = await getSettings();
@@ -195,6 +210,8 @@ async function save() {
     model,
     maxGroups: Number(inMaxGroups.value) || DEFAULT_SETTINGS.maxGroups,
     maxTitleLength: Number(inMaxTitleLength.value) || DEFAULT_SETTINGS.maxTitleLength,
+    excludePrivateHosts: inExcludePrivateHosts.checked,
+    excludedDomains: inExcludedDomains.value.split(/[\s,，;；]+/).filter(Boolean),
     autoTrigger: inAutoTrigger.checked,
     threshold: Number(inThreshold.value) || DEFAULT_SETTINGS.threshold,
     mergeMode: inMergeMode.checked,
@@ -235,6 +252,10 @@ async function load() {
   currentProvider = p;
 
   renderProviderCards(p.id);
+  customEndpointRow.classList.toggle('hidden', !p.customEndpoint);
+  modelSelectRow.classList.toggle('hidden', !!p.customEndpoint);
+  inBaseUrl.value = s.baseUrl || p.baseUrl;
+  inCustomModel.value = s.model;
   if (p.isBuiltIn && !chromeAIAvailable) showChromeAISetup();
   keyRow.classList.toggle('hidden', !p.needsKey);
 
@@ -258,6 +279,8 @@ async function load() {
   outMaxTitleLength.textContent = String(s.maxTitleLength);
   
   inAutoTrigger.checked = s.autoTrigger;
+  inExcludePrivateHosts.checked = s.excludePrivateHosts;
+  inExcludedDomains.value = s.excludedDomains.join("\n");
   
   inThreshold.value = String(s.threshold);
   outThreshold.textContent = String(s.threshold);
@@ -300,26 +323,26 @@ async function load() {
 testBtn.addEventListener('click', async () => {
   await save();
   testBtn.disabled = true;
-  testResult.textContent = 'Testing...';
+  testResult.textContent = '正在测试…';
   testResult.className = 'test-result';
 
   const res = await sendMsg({ type: 'test-connection' });
   testBtn.disabled = false;
 
   if (res?.status === 'done') {
-    testResult.textContent = 'Connected!';
+    testResult.textContent = '连接成功！';
     testResult.className = 'test-result ok';
   } else {
-    testResult.textContent = res?.error || 'Failed';
+    testResult.textContent = res?.error || '失败';
     testResult.className = 'test-result fail';
   }
-  setTimeout(() => { testResult.textContent = ''; }, 5000);
+
 });
 
 // --- Domain Rules ---
 
-async function renderDomainRules() {
-  const rules = await getDomainRules();
+async function renderDomainRules(draftRules?: DomainRule[]) {
+  const rules = draftRules ?? await getDomainRules();
   rulesContainer.innerHTML = '';
 
   for (let i = 0; i < rules.length; i++) {
@@ -327,10 +350,10 @@ async function renderDomainRules() {
     const row = document.createElement('div');
     row.className = 'rule-row';
     row.innerHTML = `
-      <input type="text" value="${esc(r.domain)}" placeholder="domain.com or *.example.com" data-i="${i}" class="rule-domain" />
-      <input type="text" value="${esc(r.groupName)}" placeholder="Group Name" data-i="${i}" class="rule-group" style="max-width:120px" />
+      <input type="text" value="${esc(r.domain)}" placeholder="example.com 或 *.example.com" data-i="${i}" class="rule-domain" />
+      <input type="text" value="${esc(r.groupName)}" placeholder="分组名称" data-i="${i}" class="rule-group" style="max-width:120px" />
       <select data-i="${i}" class="rule-color">
-        ${COLORS.map(c => `<option value="${c}" ${c === r.color ? 'selected' : ''}>${c}</option>`).join('')}
+        ${COLORS.map(c => `<option value="${c}" ${c === r.color ? 'selected' : ''}>${COLOR_LABELS[c]}</option>`).join('')}
       </select>
       <button class="btn-ghost btn-sm rule-delete" data-i="${i}">&times;</button>`;
     rulesContainer.appendChild(row);
@@ -362,8 +385,7 @@ async function renderDomainRules() {
 btnAddRule.addEventListener('click', async () => {
   const rules = await getDomainRules();
   rules.push({ domain: '', groupName: '', color: 'grey' });
-  await saveDomainRules(rules);
-  renderDomainRules();
+  await renderDomainRules(rules);
 });
 
 btnExportRulesCSV.addEventListener('click', async () => {
@@ -398,15 +420,15 @@ importRulesFile.addEventListener('change', async () => {
         imported.push({ domain: normalizedDomain, groupName: normalizedGroup, color: color as Color });
       }
     }
-    if (imported.length === 0) { alert('No valid rules found in CSV'); return; }
+    if (imported.length === 0) { alert('CSV 中没有有效规则'); return; }
     const existing = await getDomainRules();
     // Merge: overwrite existing entries for the same domain, append new ones
     const merged = new Map(existing.map(r => [r.domain, r]));
     for (const r of imported) merged.set(r.domain, r);
     await saveDomainRules([...merged.values()]);
     await renderDomainRules();
-    alert(`Imported ${imported.length} rule(s)`);
-  } catch { alert('Failed to parse CSV'); }
+    alert(`已导入 ${imported.length} 条规则`);
+  } catch { alert('无法解析 CSV 文件'); }
   importRulesFile.value = '';
 });
 
@@ -420,8 +442,8 @@ async function refreshData() {
 
   if (statsRes?.stats) {
     const s = statsRes.stats;
-    const last = s.lastOrganizedAt ? new Date(s.lastOrganizedAt).toLocaleDateString() : 'never';
-    statsLine.innerHTML = `<strong>${s.totalOrganizations}</strong> organizes &middot; <strong>${s.totalTabsGrouped}</strong> tabs grouped &middot; Last: ${last}`;
+    const last = s.lastOrganizedAt ? new Date(s.lastOrganizedAt).toLocaleDateString() : '从未整理';
+    statsLine.innerHTML = `<strong>${s.totalOrganizations}</strong> 次整理 &middot; <strong>${s.totalTabsGrouped}</strong> 个标签已分组 &middot; 上次：${last}`;
   }
 
   if (costsRes?.costs) {
@@ -433,7 +455,7 @@ async function refreshData() {
       for (const [name, data] of providers) {
         costBody.innerHTML += `<tr><td>${esc(name)}</td><td>${data.inputTokens.toLocaleString()}</td><td>${data.outputTokens.toLocaleString()}</td><td>$${data.cost.toFixed(4)}</td></tr>`;
       }
-      costBody.innerHTML += `<tr style="border-top:1px solid #3c4043;font-weight:600"><td>Total</td><td>${c.totalInputTokens.toLocaleString()}</td><td>${c.totalOutputTokens.toLocaleString()}</td><td>$${c.totalCost.toFixed(4)}</td></tr>`;
+      costBody.innerHTML += `<tr style="border-top:1px solid #3c4043;font-weight:600"><td>合计</td><td>${c.totalInputTokens.toLocaleString()}</td><td>${c.totalOutputTokens.toLocaleString()}</td><td>$${c.totalCost.toFixed(4)}</td></tr>`;
     }
   }
 }
@@ -458,10 +480,10 @@ importFile.addEventListener('change', async () => {
   try {
     const data = JSON.parse(await file.text());
     const res = await sendMsg({ type: 'import-data', data });
-    if (res?.status !== 'imported') throw new Error(res?.error || 'Import failed');
+    if (res?.status !== 'imported') throw new Error(res?.error || '导入失败');
     await load();
   } catch (err) {
-    alert(err instanceof Error ? err.message : 'Invalid import file');
+    alert(err instanceof Error ? err.message : '导入文件无效');
   }
   importFile.value = '';
 });
@@ -516,7 +538,7 @@ for (const b of rangeBindings) {
 }
 
 const autoSaveElements = [
-  inApiKey, modelSelect, inMaxGroups, inMaxTitleLength, inAutoTrigger, inThreshold,
+  inExcludePrivateHosts, inExcludedDomains, inApiKey, modelSelect, inBaseUrl, inCustomModel, inMaxGroups, inMaxTitleLength, inAutoTrigger, inThreshold,
   inMergeMode, inSilentAutoAdd, inAutoPinApps, inSmartUngroup, inStaleTabThresholdHours,
   inSpendingCapUSD,
   inEnableCorrectionTracking, inEnableRejectionMemory, inEnableGroupDrift,
@@ -544,63 +566,63 @@ function setToolStatus(msg: string, isError = false) {
 }
 
 $<HTMLButtonElement>('tool-duplicates').addEventListener('click', async () => {
-  setToolStatus('Scanning for duplicates...');
+  setToolStatus('正在查找重复标签…');
   toolResults.innerHTML = '';
   const res = await sendMsg({ type: 'find-duplicates' });
   if (!res?.duplicates?.length) {
-    setToolStatus('No duplicates found');
+    setToolStatus('未发现重复标签');
     return;
   }
-  setToolStatus(`Found ${res.duplicates.length} duplicate group(s)`);
+  setToolStatus(`发现 ${res.duplicates.length} 组重复标签`);
   for (const group of res.duplicates) {
     const div = document.createElement('div');
     div.style.cssText = 'background:rgba(242,139,130,0.05);border:1px solid rgba(242,139,130,0.12);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:11px;color:#7a8099';
     const first = group[0] as { title?: string; url?: string } | undefined;
-    div.innerHTML = `<strong style="color:#f28b82">${esc(first?.title || first?.url || 'Unknown')} (${group.length}x)</strong><br>${group.map((t: { url?: string }) => esc(t.url || '')).join('<br>')}`;
+    div.innerHTML = `<strong style="color:#f28b82">${esc(first?.title || first?.url || '未知')} (${group.length}x)</strong><br>${group.map((t: { url?: string }) => esc(t.url || '')).join('<br>')}`;
     toolResults.appendChild(div);
   }
 });
 
 $<HTMLButtonElement>('tool-focus').addEventListener('click', async () => {
-  setToolStatus('Collapsing other groups...');
+  setToolStatus('正在收起其他分组…');
   const res = await sendMsg({ type: 'focus-group' });
-  setToolStatus(res?.error ? res.error : 'Focus mode activated', Boolean(res?.error));
+  setToolStatus(res?.error ? res.error : '已进入专注模式', Boolean(res?.error));
 });
 
 $<HTMLButtonElement>('tool-sort').addEventListener('click', async () => {
-  setToolStatus('Sorting tab groups...');
+  setToolStatus('正在排序分组…');
   const res = await sendMsg({ type: 'sort-groups' });
-  setToolStatus(res?.error ? res.error : `Sorted ${res?.count ?? 0} groups`, Boolean(res?.error));
+  setToolStatus(res?.error ? res.error : `已排序 ${res?.count ?? 0} 个分组`, Boolean(res?.error));
 });
 
 $<HTMLButtonElement>('tool-clear').addEventListener('click', async () => {
-  setToolStatus('Clearing all tab groups...');
+  setToolStatus('正在取消全部分组…');
   const res = await sendMsg({ type: 'delete-all-groups' });
-  setToolStatus(res?.error ? res.error : (res?.count ? `Cleared ${res.count} groups` : 'No groups to clear'), Boolean(res?.error));
+  setToolStatus(res?.error ? res.error : (res?.count ? `已取消 ${res.count} 个分组` : '没有需要取消的分组'), Boolean(res?.error));
 });
 
 $<HTMLButtonElement>('tool-export-md').addEventListener('click', async () => {
-  setToolStatus('Exporting...');
+  setToolStatus('正在导出…');
   const res = await sendMsg({ type: 'export-markdown' });
   if (res?.error) { setToolStatus(res.error, true); return; }
   try {
-    await navigator.clipboard.writeText(res.markdown || '');
-    setToolStatus('Markdown copied to clipboard!');
+    await navigator.clipboard.writeText(res?.markdown || '');
+    setToolStatus('Markdown 已复制到剪贴板！');
   } catch {
-    setToolStatus('Clipboard access denied', true);
+    setToolStatus('无法访问剪贴板', true);
   }
 });
 
 $<HTMLButtonElement>('tool-snooze').addEventListener('click', async () => {
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!activeTab?.id) { setToolStatus('No active tab to snooze', true); return; }
+  if (!activeTab?.id) { setToolStatus('没有可暂存的当前标签', true); return; }
   const delayMs = Number(($<HTMLSelectElement>('tool-snooze-duration')).value) || 86400000;
   const wakeAt = Date.now() + delayMs;
-  setToolStatus('Snoozing...');
+  setToolStatus('正在暂存…');
   const res = await sendMsg({ type: 'snooze-tabs', tabIds: [activeTab.id], wakeAt });
   if (res?.error) { setToolStatus(res.error, true); return; }
   const sel = $<HTMLSelectElement>('tool-snooze-duration');
-  setToolStatus(`Tab snoozed until ${sel.options[sel.selectedIndex]?.text || 'later'}`);
+  setToolStatus(`Tab snoozed until ${sel.options[sel.selectedIndex]?.text || '稍后'}`);
 });
 
 // Workspace tools
@@ -622,17 +644,17 @@ async function refreshToolWorkspaces() {
     row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:8px;margin-bottom:3px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);font-size:11px';
     row.innerHTML = `
       <span style="flex:1;color:#c5d5ff;font-family:var(--font-display);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</span>
-      <span style="color:#555a70;flex-shrink:0">${tabCount} tabs</span>
-      <button class="btn-ghost btn-sm ws-tool-restore" data-name="${esc(name)}" style="padding:3px 8px;font-size:10px">Restore</button>
+      <span style="color:#555a70;flex-shrink:0">${tabCount} 个标签</span>
+      <button class="btn-ghost btn-sm ws-tool-restore" data-name="${esc(name)}" style="padding:3px 8px;font-size:10px">恢复</button>
       <button class="btn-ghost btn-sm ws-tool-delete" data-name="${esc(name)}" style="padding:3px 6px;font-size:10px;color:#f28b82">✕</button>`;
     toolWsList.appendChild(row);
   }
 
   toolWsList.querySelectorAll<HTMLButtonElement>('.ws-tool-restore').forEach(btn => {
     btn.addEventListener('click', async () => {
-      setToolStatus(`Restoring "${btn.dataset.name}"...`);
+      setToolStatus(`正在恢复“${btn.dataset.name}”…`);
       const res = await sendMsg({ type: 'restore-workspace', name: btn.dataset.name });
-      setToolStatus(res?.error ? res.error : `Restored "${btn.dataset.name}" in new window`, Boolean(res?.error));
+      setToolStatus(res?.error ? res.error : `已在新窗口恢复“${btn.dataset.name}”`, Boolean(res?.error));
     });
   });
 
@@ -647,12 +669,12 @@ async function refreshToolWorkspaces() {
 $<HTMLButtonElement>('tool-workspace-save').addEventListener('click', async () => {
   const input = $<HTMLInputElement>('tool-workspace-name');
   const name = input.value.trim();
-  if (!name) { setToolStatus('Enter a workspace name', true); return; }
-  setToolStatus('Saving workspace...');
+  if (!name) { setToolStatus('请输入工作区名称', true); return; }
+  setToolStatus('正在保存工作区…');
   const res = await sendMsg({ type: 'save-workspace', name });
   if (res?.error) { setToolStatus(res.error, true); return; }
   input.value = '';
-  setToolStatus(`Workspace "${name}" saved`);
+  setToolStatus(`已保存工作区“${name}”`);
   await refreshToolWorkspaces();
 });
 
@@ -662,14 +684,14 @@ document.querySelectorAll<HTMLButtonElement>('.copy-btn[data-copy]').forEach(btn
   btn.addEventListener('click', () => {
     void navigator.clipboard.writeText(btn.dataset.copy!);
     const orig = btn.textContent;
-    btn.textContent = 'Copied!';
+    btn.textContent = '已复制！';
     setTimeout(() => { btn.textContent = orig; }, 1500);
   });
 });
 
 document.getElementById('chrome-ai-check-btn')?.addEventListener('click', async () => {
   const btn = document.getElementById('chrome-ai-check-btn') as HTMLButtonElement;
-  btn.textContent = 'Checking…';
+  btn.textContent = '正在检测…';
   btn.disabled = true;
   chromeAIAvailable = await checkChromeAI();
   if (chromeAIAvailable) {
@@ -677,14 +699,14 @@ document.getElementById('chrome-ai-check-btn')?.addEventListener('click', async 
     const p = PROVIDERS.find(pr => pr.id === 'chrome-ai')!;
     selectProvider(p);
   } else {
-    btn.textContent = 'Not detected — restart Chrome and try again';
-    setTimeout(() => { btn.textContent = 'Check again'; btn.disabled = false; }, 3000);
+    btn.textContent = '未检测到，请重启 Chrome 后重试';
+    setTimeout(() => { btn.textContent = '重新检测'; btn.disabled = false; }, 3000);
   }
 });
 
 document.getElementById('chrome-ai-skip-btn')?.addEventListener('click', () => {
   hideChromeAISetup();
-  const groq = PROVIDERS.find(p => p.id === 'groq')!;
+  const groq = PROVIDERS.find(p => p.id === 'tt-switch')!;
   selectProvider(groq);
 });
 
