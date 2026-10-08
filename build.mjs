@@ -19,6 +19,7 @@ cpSync('src/popup.html', 'dist/popup.html');
 cpSync('src/options.html', 'dist/options.html');
 
 cpSync('icons', 'dist/icons', { recursive: true });
+cpSync('_locales', 'dist/_locales', { recursive: true });
 
 const entries = [
   { ...common, entryPoints: ['src/background.ts'], outfile: 'dist/background.js' },

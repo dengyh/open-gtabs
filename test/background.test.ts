@@ -737,12 +737,12 @@ describe('event listeners', () => {
 
       const first = (chrome.tabGroups.onCreated as any).callListeners({ id: 1 });
       const second = (chrome.tabGroups.onRemoved as any).callListeners(1);
-      await Promise.resolve();
+      for (let i = 0; i < 20; i++) await Promise.resolve();
 
       expect(chrome.contextMenus.removeAll).toHaveBeenCalledTimes(1);
       removeCallbacks.shift()?.();
       await first;
-      await Promise.resolve();
+      for (let i = 0; i < 20; i++) await Promise.resolve();
 
       expect(chrome.contextMenus.removeAll).toHaveBeenCalledTimes(2);
       removeCallbacks.shift()?.();
@@ -794,11 +794,7 @@ describe('event listeners', () => {
         const isAsync = await (chrome.runtime.onMessage as any).callListeners(msg, {}, sendResponse);
         // We either expect `responded` to be true synchronously or after ticks
         for (let i = 0; i < 15; i++) await new Promise(r => process.nextTick(r));
-        if (msg.type === 'check-chrome-ai') {
-           expect(isAsync).toEqual([false]); // onMessage returns false for sync
-        } else {
-           expect(isAsync).toEqual([true]); // onMessage returns true to keep channel open
-        }
+        expect(isAsync).toEqual([true]); // Restore the persisted language before handling messages.
         expect(sendResponse).toHaveBeenCalled();
       }
     });

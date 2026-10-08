@@ -1,3 +1,4 @@
+import { tr, localizeDocument } from './i18n';
 import { REASON_LABELS, type OrganizationReport } from './reports';
 import type { MessageType } from './types';
 import type { Color, GroupSuggestion, TabInfo, CorrectionEntry, RejectionEntry } from './types';
@@ -91,9 +92,9 @@ function renderSuggestions(suggestions: GroupSuggestion[]) {
       <div class="card-header">
         <input class="group-name" value="${esc(g.name)}" data-i="${i}" />
         <select class="group-color" data-i="${i}">
-          ${COLORS.map(c => `<option value="${c}" ${c === g.color ? 'selected' : ''}>${COLOR_LABELS[c]}</option>`).join('')}
+          ${COLORS.map(c => `<option value="${c}" ${c === g.color ? 'selected' : ''}>${tr(COLOR_LABELS[c])}</option>`).join('')}
         </select>
-        <button class="pin-group" data-i="${i}" title="锁定此分组，重新整理时保留">&#x1F4CC;</button>
+        <button class="pin-group" data-i="${i}" title="${tr("锁定此分组，重新整理时保留")}">&#x1F4CC;</button>
         <button class="remove-group" data-i="${i}">&times;</button>
       </div>
       <ul class="tab-list">
@@ -123,10 +124,10 @@ function renderSuggestions(suggestions: GroupSuggestion[]) {
       const pinned = new Set(settings.pinnedGroups);
       if (pinned.has(groupName)) {
         pinned.delete(groupName);
-        setStatus(`已解除“${groupName}”的锁定`);
+        setStatus(tr("已解除“{0}”的锁定", groupName));
       } else {
         pinned.add(groupName);
-        setStatus(`已锁定“${groupName}”，重新整理时保留`);
+        setStatus(tr("已锁定“{0}”，重新整理时保留", groupName));
       }
       await saveSettings({ ...settings, pinnedGroups: [...pinned] });
     }),
@@ -164,7 +165,7 @@ function renderSuggestions(suggestions: GroupSuggestion[]) {
 function renderTabSearchResults(results: Array<{ id: number; title: string; url: string; groupName: string; groupId: number }>) {
   tabSearchResults.innerHTML = '';
   if (!results.length) {
-    tabSearchResults.innerHTML = '<div class="tab-search-empty">没有匹配的标签</div>';
+    tabSearchResults.innerHTML = `<div class="tab-search-empty">${tr("没有匹配的标签")}</div>`;
     return;
   }
   for (const tab of results.slice(0, 30)) {
@@ -175,7 +176,7 @@ function renderTabSearchResults(results: Array<{ id: number; title: string; url:
         <span class="tab-search-title">${esc(tab.title || tab.url)}</span>
         ${tab.groupName ? `<span class="tab-search-group">${esc(tab.groupName)}</span>` : ''}
       </div>
-      <button class="btn-ghost tab-search-switch" data-id="${tab.id}">切换</button>`;
+      <button class="btn-ghost tab-search-switch" data-id="${tab.id}">${tr("切换")}</button>`;
     tabSearchResults.appendChild(row);
   }
   tabSearchResults.querySelectorAll<HTMLButtonElement>('.tab-search-switch').forEach(btn => {
@@ -264,7 +265,7 @@ document.addEventListener('keydown', e => {
 // --- Core actions ---
 
 async function doOrganize(ungroupedOnly: boolean) {
-  setStatus('正在整理…');
+  setStatus(tr("正在整理…"));
   btnOrganize.disabled = true;
   btnOrganizeUngrouped.disabled = true;
   container.innerHTML = '';
@@ -277,14 +278,14 @@ async function doOrganize(ungroupedOnly: boolean) {
   renderReport(res?.report);
 
   if (!res) {
-    setStatus('未收到响应，请重试', true);
+    setStatus(tr("未收到响应，请重试"), true);
   } else if (res.error) {
     setStatus(res.error, true);
   } else if (res.suggestions) {
-    setStatus(`建议创建 ${res.suggestions.length} 个分组`);
+    setStatus(tr("建议创建 {0} 个分组", res.suggestions.length));
     renderSuggestions(res.suggestions);
   } else {
-    setStatus('没有返回分组建议', true);
+    setStatus(tr("没有返回分组建议"), true);
   }
 }
 
@@ -293,7 +294,7 @@ btnOrganizeUngrouped.addEventListener('click', () => doOrganize(true));
 
 btnApply.addEventListener('click', async () => {
   if (!currentSuggestions.length) return;
-  setStatus('正在应用…');
+  setStatus(tr("正在应用…"));
   btnApply.disabled = true;
 
   const corrections = computeCorrections(originalSuggestions, currentSuggestions);
@@ -303,18 +304,18 @@ btnApply.addEventListener('click', async () => {
 
   const res = await sendMsg({ type: 'apply', suggestions: currentSuggestions });
   btnApply.disabled = false;
-  if (!res || res.error) { setStatus(res?.error || '未收到响应，请重试', true); return; }
+  if (!res || res.error) { setStatus(res?.error || tr("未收到响应，请重试"), true); return; }
   const count = res.report?.items.filter(t => t.reason === 'applied').length;
-  setStatus(count === undefined ? '已应用！' : `已归组 ${count} 个标签，其余原因见下方。`);
+  setStatus(count === undefined ? tr("已应用！") : tr("已归组 {0} 个标签，其余原因见下方。", count));
   renderReport(res.report);
   clearSuggestionUi();
   await refreshFooter();
 });
 
 btnUndo.addEventListener('click', async () => {
-  setStatus('正在撤销…');
+  setStatus(tr("正在撤销…"));
   const res = await sendMsg({ type: 'undo' });
-  setStatus(res?.error ? res.error : '已撤销！', Boolean(res?.error));
+  setStatus(res?.error ? res.error : tr("已撤销！"), Boolean(res?.error));
   if (res && !res.error) renderReport(null);
 });
 
@@ -331,11 +332,11 @@ async function refreshFooter() {
   ]);
 
   if (statsRes?.stats?.totalOrganizations) {
-    statsText.textContent = `${statsRes.stats.totalOrganizations} 次整理 · ${statsRes.stats.totalTabsGrouped} 个标签`;
+    statsText.textContent = tr("{0} 次整理 · {1} 个标签", statsRes.stats.totalOrganizations, statsRes.stats.totalTabsGrouped);
   }
 
   if (costsRes?.costs && costsRes.costs.totalCost > 0) {
-    costText.textContent = `累计估算 $${costsRes.costs.totalCost.toFixed(4)}`;
+    costText.textContent = tr("累计估算 ${0}", costsRes.costs.totalCost.toFixed(4));
   }
 }
 
@@ -346,16 +347,16 @@ function renderReport(report?: OrganizationReport | null) {
   if (!report) return;
   const counts = new Map<string, number>();
   for (const item of report.items) counts.set(item.reason, (counts.get(item.reason) || 0) + 1);
-  $('report-summary').textContent = `${report.phase === 'applied' ? '上次整理结果' : '整理说明'} · ${report.items.length} 个标签 · ${counts.get('applied') || 0} 个已归组 · ${counts.get('suggested') || 0} 个待应用`;
+  $('report-summary').textContent = tr("{0} · {1} 个标签 · {2} 个已归组 · {3} 个待应用", report.phase === 'applied' ? tr("上次整理结果") : tr("整理说明"), report.items.length, counts.get('applied') || 0, counts.get('suggested') || 0);
   const items = report.items.filter(t => t.reason !== 'applied' && t.reason !== 'suggested');
-  $('report-items').innerHTML = items.map(t => `<div class="report-item">${esc(t.title)}<small>${esc(REASON_LABELS[t.reason])}</small>${['excluded','private','insufficient','unmatched','failed','not-selected'].includes(t.reason) ? `<input class="manual-name" data-id="${t.id}" placeholder="分组名称" aria-label="${esc(t.title)}的目标分组" /><button class="btn-ghost manual-group" data-id="${t.id}">本地归组</button>` : ''}</div>`).join('') || '<p>没有其他未处理标签。</p>';
+  $('report-items').innerHTML = items.map(t => `<div class="report-item">${esc(t.title)}<small>${esc(tr(REASON_LABELS[t.reason]))}</small>${['excluded','private','insufficient','unmatched','failed','not-selected'].includes(t.reason) ? `<input class="manual-name" data-id="${t.id}" placeholder="${tr("分组名称")}" aria-label="${tr("{0}的目标分组", esc(t.title))}" /><button class="btn-ghost manual-group" data-id="${t.id}">${tr("本地归组")}</button>` : ''}</div>`).join('') || `<p>${tr("没有其他未处理标签。")}</p>`;
   wrapper.querySelectorAll<HTMLButtonElement>('.manual-group').forEach(button => button.addEventListener('click', async () => {
     const groupName = wrapper.querySelector<HTMLInputElement>(`.manual-name[data-id="${button.dataset.id}"]`)?.value.trim();
-    if (!groupName) { setStatus('请输入目标分组名称', true); return; }
+    if (!groupName) { setStatus(tr("请输入目标分组名称"), true); return; }
     button.disabled = true;
     const res = await sendMsg({ type: 'manual-group-tab', tabId: Number(button.dataset.id), groupName });
     button.disabled = false;
-    setStatus(res?.error || '已在本机归组，未调用模型。', !!res?.error);
+    setStatus(res?.error || tr("已在本机归组，未调用模型。"), !!res?.error);
     if (res?.report) renderReport(res.report);
   }));
 }
@@ -366,15 +367,17 @@ $('cleanup-notice')?.addEventListener('click', () => {
 async function refreshNotice() {
   const res = await sendMsg({ type: 'cleanup-summary' });
   const notice = $('cleanup-notice');
-  if (notice) { notice.hidden = !res?.summary?.count; notice.textContent = `${res?.summary?.count || 0} 个闲置标签可检查 · 打开清理中心`; }
+  if (notice) { notice.hidden = !res?.summary?.count; notice.textContent = tr("{0} 个闲置标签可检查 · 打开清理中心", res?.summary?.count || 0); }
 }
 // --- Init ---
 
 (async () => {
+  await getSettings();
+  localizeDocument();
   const currentWindow = await chrome.windows.getCurrent();
   const pending = currentWindow.id === undefined ? null : await getSuggestions(currentWindow.id);
   if (pending?.length) {
-    setStatus(`${pending.length} 个待确认分组`);
+    setStatus(tr("{0} 个待确认分组", pending.length));
     renderSuggestions(pending);
   }
   await refreshFooter();

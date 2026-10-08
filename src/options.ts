@@ -1,3 +1,4 @@
+import { tr, getLocale, localizeDocument, normalizeLanguage } from './i18n';
 import { initCleanupUI } from './cleanup-ui';
 import { endpointInfo, sameEndpoint } from './endpoints';
 import type { MessageType } from './types';
@@ -22,6 +23,7 @@ try {
   if (saved) (document.querySelector(`.tab-btn[data-tab="${saved}"]`) as HTMLButtonElement)?.click();
 } catch { /* ignore */ }
 
+const languageSelect = $<HTMLSelectElement>('language');
 const providerGrid = $<HTMLDivElement>('provider-grid');
 const keyRow = $<HTMLDivElement>('key-row');
 const inExcludePrivateHosts = $<HTMLInputElement>('excludePrivateHosts');
@@ -112,11 +114,11 @@ function renderProviderCards(selectedId: string) {
     if (p.isBuiltIn && !chromeAIAvailable) card.className += ' disabled';
 
     let badge = '';
-    if (p.isBuiltIn) badge = `<div class="badge local">${chromeAIAvailable ? '本机' : '不可用'}</div>`;
-    else if (p.canFetchModels) badge = '<div class="badge local">本机</div>';
-    card.innerHTML = `<div class="name">${esc(p.name)}</div>${badge}`;
+    if (p.isBuiltIn) badge = `<div class="badge local">${chromeAIAvailable ? tr("本机") : tr("不可用")}</div>`;
+    else if (p.canFetchModels) badge = `<div class="badge local">${tr("本机")}</div>`;
+    card.innerHTML = `<div class="name">${esc(tr(p.name))}</div>${badge}`;
     if (p.id === selectedId && p.helpText) {
-      card.innerHTML += `<div style="font-size:10px;color:#9aa0a6;margin-top:4px">${esc(p.helpText)}</div>`;
+      card.innerHTML += `<div style="font-size:10px;color:#9aa0a6;margin-top:4px">${esc(tr(p.helpText))}</div>`;
     }
 
     card.addEventListener('click', () => {
@@ -180,7 +182,7 @@ function selectProvider(p: ProviderPreset) {
 function populateModels(models: string[]) {
   modelSelect.innerHTML = '';
   if (!models.length) {
-    modelSelect.innerHTML = '<option value="">暂无可用模型</option>';
+    modelSelect.innerHTML = `<option value="">${tr("暂无可用模型")}</option>`;
     return;
   }
   for (const m of models) {
@@ -195,16 +197,16 @@ function populateModels(models: string[]) {
 
 async function fetchOllamaModels() {
   const origText = modelSelect.innerHTML;
-  modelSelect.innerHTML = '<option>正在加载模型…</option>';
+  modelSelect.innerHTML = `<option>${tr("正在加载模型…")}</option>`;
   try {
     const res = await sendMsg({ type: 'fetch-ollama-models' });
     if (res?.models?.length) {
       populateModels(res.models);
     } else {
-      modelSelect.innerHTML = '<option value="">Ollama 尚未运行</option>';
+      modelSelect.innerHTML = `<option value="">${tr("Ollama 尚未运行")}</option>`;
     }
   } catch {
-    modelSelect.innerHTML = '<option value="">连接失败</option>';
+    modelSelect.innerHTML = `<option value="">${tr("连接失败")}</option>`;
   }
 }
 
@@ -216,17 +218,17 @@ async function refreshOpenAIModels(persist = true) {
   if (persist) await save();
   if (request !== modelRequest || endpoint !== inBaseUrl.value || key !== inApiKey.value) return;
   refreshModelsButton.disabled = true;
-  modelStatus.textContent = '正在读取模型列表…';
+  modelStatus.textContent = tr("正在读取模型列表…");
   try {
     const res = await sendMsg({ type: 'fetch-models' });
     if (request !== modelRequest || currentProvider?.id !== 'openai-compatible' || endpoint !== inBaseUrl.value || key !== inApiKey.value) return;
-    if (!res?.models?.length) throw new Error(res?.error || '未获得模型列表，当前模型保持不变，可手动填写。');
+    if (!res?.models?.length) throw new Error(res?.error || tr("未获得模型列表，当前模型保持不变，可手动填写。"));
     const selected = inCustomModel.value.trim();
     populateModels([...new Set([selected, ...res.models].filter(Boolean))]);
     modelSelect.value = selected;
-    modelStatus.textContent = `已读取 ${res.models.length} 个模型。列表不代表当前账号一定有调用权限；可测试连接。`;
+    modelStatus.textContent = tr("已读取 {0} 个模型。列表不代表当前账号一定有调用权限；可测试连接。", res.models.length);
   } catch (e) {
-    if (request === modelRequest) modelStatus.textContent = e instanceof Error ? e.message : '模型列表读取失败，当前模型保持不变。';
+    if (request === modelRequest) modelStatus.textContent = e instanceof Error ? e.message : tr("模型列表读取失败，当前模型保持不变。");
   } finally { if (request === modelRequest) refreshModelsButton.disabled = false; }
 }
 refreshModelsButton.addEventListener('click', () => { void refreshOpenAIModels(); });
@@ -243,7 +245,7 @@ for (const input of [inBaseUrl, inApiKey]) input.addEventListener('input', () =>
   modelRequest++; refreshModelsButton.disabled = false;
   if (currentProvider?.id === 'openai-compatible') {
     populateModels(inCustomModel.value.trim() ? [inCustomModel.value.trim()] : []);
-    modelStatus.textContent = '连接配置已变化，保存后可刷新模型列表。';
+    modelStatus.textContent = tr("连接配置已变化，保存后可刷新模型列表。");
   }
 });
 
@@ -259,9 +261,9 @@ async function updateEndpointStatus() {
     if (request !== endpointCheck) return;
     authorizeEndpointButton.hidden = granted;
     authorizeEndpointButton.disabled = false;
-    endpointStatus.textContent = !endpoint.permission ? '本机接口：无需额外授权。'
-      : granted ? '此接口所在网站已授权。' : '连接此接口前，请授权访问它所在的网站。';
-  } catch (e) { if (request === endpointCheck) endpointStatus.textContent = e instanceof Error ? e.message : '接口地址无效'; }
+    endpointStatus.textContent = !endpoint.permission ? tr("本机接口：无需额外授权。")
+      : granted ? tr("此接口所在网站已授权。") : tr("连接此接口前，请授权访问它所在的网站。");
+  } catch (e) { if (request === endpointCheck) endpointStatus.textContent = e instanceof Error ? e.message : tr("接口地址无效"); }
 }
 authorizeEndpointButton.addEventListener('click', async () => {
   if (currentProvider?.id !== 'openai-compatible') return;
@@ -273,8 +275,8 @@ authorizeEndpointButton.addEventListener('click', async () => {
     const granted = await chrome.permissions.request({ origins: [endpoint.permission] });
     if (address !== inBaseUrl.value || currentProvider?.id !== 'openai-compatible') return;
     await updateEndpointStatus();
-    if (!granted) endpointStatus.textContent = '未授权，尚未连接此服务；可继续使用本机接口。';
-  } catch (e) { endpointStatus.textContent = e instanceof Error ? e.message : '授权失败，请重试'; }
+    if (!granted) endpointStatus.textContent = tr("未授权，尚未连接此服务；可继续使用本机接口。");
+  } catch (e) { endpointStatus.textContent = e instanceof Error ? e.message : tr("授权失败，请重试"); }
   finally { authorizeEndpointButton.disabled = false; }
 });
 function onEndpointEdited() {
@@ -304,6 +306,7 @@ async function save() {
   const baseUrl = p.customEndpoint ? inBaseUrl.value.trim().replace(/\/+$/, '') : p.baseUrl;
 
   const settings: Settings = {
+    language: normalizeLanguage(languageSelect.value),
     provider: p.id,
     baseUrl,
     apiKey: inApiKey.value.trim(),
@@ -347,8 +350,10 @@ function scheduleSave(delayMs = 180) {
 // --- Load ---
 
 async function load() {
-  chromeAIAvailable = await checkChromeAI();
   const s = await getSettings();
+  languageSelect.value = s.language;
+  localizeDocument();
+  chromeAIAvailable = await checkChromeAI();
 
   // Find provider
   const p = PROVIDERS.find(provider => provider.id === s.provider)
@@ -445,12 +450,12 @@ testBtn.addEventListener('click', async () => {
   await save();
   if (state !== connectionState()) return;
   testBtn.disabled = true;
-  testResult.textContent = '正在测试…';
+  testResult.textContent = tr("正在测试…");
   testResult.className = 'test-result';
   try {
     const res = await sendMsg({ type: 'test-connection' });
     if (state !== connectionState()) return;
-    testResult.textContent = res?.status === 'done' ? '连接成功！' : res?.error || '失败';
+    testResult.textContent = res?.status === 'done' ? tr("连接成功！") : res?.error || tr("失败");
     testResult.className = res?.status === 'done' ? 'test-result ok' : 'test-result fail';
   } finally { testBtn.disabled = false; }
 });
@@ -466,10 +471,10 @@ async function renderDomainRules(draftRules?: DomainRule[]) {
     const row = document.createElement('div');
     row.className = 'rule-row';
     row.innerHTML = `
-      <input type="text" value="${esc(r.domain)}" placeholder="example.com 或 *.example.com" data-i="${i}" class="rule-domain" />
-      <input type="text" value="${esc(r.groupName)}" placeholder="分组名称" data-i="${i}" class="rule-group" style="max-width:120px" />
+      <input type="text" value="${esc(r.domain)}" placeholder="${tr("example.com 或 *.example.com")}" data-i="${i}" class="rule-domain" />
+      <input type="text" value="${esc(r.groupName)}" placeholder="${tr("分组名称")}" data-i="${i}" class="rule-group" style="max-width:120px" />
       <select data-i="${i}" class="rule-color">
-        ${COLORS.map(c => `<option value="${c}" ${c === r.color ? 'selected' : ''}>${COLOR_LABELS[c]}</option>`).join('')}
+        ${COLORS.map(c => `<option value="${c}" ${c === r.color ? 'selected' : ''}>${tr(COLOR_LABELS[c])}</option>`).join('')}
       </select>
       <button class="btn-ghost btn-sm rule-delete" data-i="${i}">&times;</button>`;
     rulesContainer.appendChild(row);
@@ -536,15 +541,15 @@ importRulesFile.addEventListener('change', async () => {
         imported.push({ domain: normalizedDomain, groupName: normalizedGroup, color: color as Color });
       }
     }
-    if (imported.length === 0) { alert('CSV 中没有有效规则'); return; }
+    if (imported.length === 0) { alert(tr("CSV 中没有有效规则")); return; }
     const existing = await getDomainRules();
     // Merge: overwrite existing entries for the same domain, append new ones
     const merged = new Map(existing.map(r => [r.domain, r]));
     for (const r of imported) merged.set(r.domain, r);
     await saveDomainRules([...merged.values()]);
     await renderDomainRules();
-    alert(`已导入 ${imported.length} 条规则`);
-  } catch { alert('无法解析 CSV 文件'); }
+    alert(tr("已导入 {0} 条规则", imported.length));
+  } catch { alert(tr("无法解析 CSV 文件")); }
   importRulesFile.value = '';
 });
 
@@ -558,8 +563,8 @@ async function refreshData() {
 
   if (statsRes?.stats) {
     const s = statsRes.stats;
-    const last = s.lastOrganizedAt ? new Date(s.lastOrganizedAt).toLocaleDateString() : '从未整理';
-    statsLine.innerHTML = `<strong>${s.totalOrganizations}</strong> 次整理 &middot; <strong>${s.totalTabsGrouped}</strong> 个标签已分组 &middot; 上次：${last}`;
+    const last = s.lastOrganizedAt ? new Date(s.lastOrganizedAt).toLocaleDateString(getLocale()) : tr("从未整理");
+    statsLine.textContent = tr("{0} 次整理 · {1} 个标签已分组 · 上次：{2}", s.totalOrganizations, s.totalTabsGrouped, last);
   }
 
   if (costsRes?.costs) {
@@ -569,9 +574,9 @@ async function refreshData() {
       costTable.hidden = false;
       costBody.innerHTML = '';
       for (const [name, data] of providers) {
-        costBody.innerHTML += `<tr><td>${esc(name)}</td><td>${data.inputTokens.toLocaleString()}</td><td>${data.outputTokens.toLocaleString()}</td><td>$${data.cost.toFixed(4)}</td></tr>`;
+        costBody.innerHTML += `<tr><td>${esc(name)}</td><td>${data.inputTokens.toLocaleString(getLocale())}</td><td>${data.outputTokens.toLocaleString(getLocale())}</td><td>$${data.cost.toFixed(4)}</td></tr>`;
       }
-      costBody.innerHTML += `<tr style="border-top:1px solid #3c4043;font-weight:600"><td>合计</td><td>${c.totalInputTokens.toLocaleString()}</td><td>${c.totalOutputTokens.toLocaleString()}</td><td>$${c.totalCost.toFixed(4)}</td></tr>`;
+      costBody.innerHTML += `<tr style="border-top:1px solid #3c4043;font-weight:600"><td>${tr("合计")}</td><td>${c.totalInputTokens.toLocaleString(getLocale())}</td><td>${c.totalOutputTokens.toLocaleString(getLocale())}</td><td>$${c.totalCost.toFixed(4)}</td></tr>`;
     }
   }
 }
@@ -596,10 +601,10 @@ importFile.addEventListener('change', async () => {
   try {
     const data = JSON.parse(await file.text());
     const res = await sendMsg({ type: 'import-data', data });
-    if (res?.status !== 'imported') throw new Error(res?.error || '导入失败');
+    if (res?.status !== 'imported') throw new Error(res?.error || tr("导入失败"));
     await load();
   } catch (err) {
-    alert(err instanceof Error ? err.message : '导入文件无效');
+    alert(err instanceof Error ? err.message : tr("导入文件无效"));
   }
   importFile.value = '';
 });
@@ -682,63 +687,63 @@ function setToolStatus(msg: string, isError = false) {
 }
 
 $<HTMLButtonElement>('tool-duplicates').addEventListener('click', async () => {
-  setToolStatus('正在查找重复标签…');
+  setToolStatus(tr("正在查找重复标签…"));
   toolResults.innerHTML = '';
   const res = await sendMsg({ type: 'find-duplicates' });
   if (!res?.duplicates?.length) {
-    setToolStatus('未发现重复标签');
+    setToolStatus(tr("未发现重复标签"));
     return;
   }
-  setToolStatus(`发现 ${res.duplicates.length} 组重复标签`);
+  setToolStatus(tr("发现 {0} 组重复标签", res.duplicates.length));
   for (const group of res.duplicates) {
     const div = document.createElement('div');
     div.style.cssText = 'background:rgba(242,139,130,0.05);border:1px solid rgba(242,139,130,0.12);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:11px;color:#7a8099';
     const first = group[0] as { title?: string; url?: string } | undefined;
-    div.innerHTML = `<strong style="color:#f28b82">${esc(first?.title || first?.url || '未知')} (${group.length}x)</strong><br>${group.map((t: { url?: string }) => esc(t.url || '')).join('<br>')}`;
+    div.innerHTML = `<strong style="color:#f28b82">${esc(first?.title || first?.url || tr("未知"))} (${group.length}x)</strong><br>${group.map((t: { url?: string }) => esc(t.url || '')).join('<br>')}`;
     toolResults.appendChild(div);
   }
 });
 
 $<HTMLButtonElement>('tool-focus').addEventListener('click', async () => {
-  setToolStatus('正在收起其他分组…');
+  setToolStatus(tr("正在收起其他分组…"));
   const res = await sendMsg({ type: 'focus-group' });
-  setToolStatus(res?.error ? res.error : '已进入专注模式', Boolean(res?.error));
+  setToolStatus(res?.error ? res.error : tr("已进入专注模式"), Boolean(res?.error));
 });
 
 $<HTMLButtonElement>('tool-sort').addEventListener('click', async () => {
-  setToolStatus('正在排序分组…');
+  setToolStatus(tr("正在排序分组…"));
   const res = await sendMsg({ type: 'sort-groups' });
-  setToolStatus(res?.error ? res.error : `已排序 ${res?.count ?? 0} 个分组`, Boolean(res?.error));
+  setToolStatus(res?.error ? res.error : tr("已排序 {0} 个分组", res?.count ?? 0), Boolean(res?.error));
 });
 
 $<HTMLButtonElement>('tool-clear').addEventListener('click', async () => {
-  setToolStatus('正在取消全部分组…');
+  setToolStatus(tr("正在取消全部分组…"));
   const res = await sendMsg({ type: 'delete-all-groups' });
-  setToolStatus(res?.error ? res.error : (res?.count ? `已取消 ${res.count} 个分组` : '没有需要取消的分组'), Boolean(res?.error));
+  setToolStatus(res?.error ? res.error : (res?.count ? tr("已取消 {0} 个分组", res.count) : tr("没有需要取消的分组")), Boolean(res?.error));
 });
 
 $<HTMLButtonElement>('tool-export-md').addEventListener('click', async () => {
-  setToolStatus('正在导出…');
+  setToolStatus(tr("正在导出…"));
   const res = await sendMsg({ type: 'export-markdown' });
   if (res?.error) { setToolStatus(res.error, true); return; }
   try {
     await navigator.clipboard.writeText(res?.markdown || '');
-    setToolStatus('Markdown 已复制到剪贴板！');
+    setToolStatus(tr("Markdown 已复制到剪贴板！"));
   } catch {
-    setToolStatus('无法访问剪贴板', true);
+    setToolStatus(tr("无法访问剪贴板"), true);
   }
 });
 
 $<HTMLButtonElement>('tool-snooze').addEventListener('click', async () => {
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!activeTab?.id) { setToolStatus('没有可暂存的当前标签', true); return; }
+  if (!activeTab?.id) { setToolStatus(tr("没有可暂存的当前标签"), true); return; }
   const delayMs = Number(($<HTMLSelectElement>('tool-snooze-duration')).value) || 86400000;
   const wakeAt = Date.now() + delayMs;
-  setToolStatus('正在暂存…');
+  setToolStatus(tr("正在暂存…"));
   const res = await sendMsg({ type: 'snooze-tabs', tabIds: [activeTab.id], wakeAt });
   if (res?.error) { setToolStatus(res.error, true); return; }
   const sel = $<HTMLSelectElement>('tool-snooze-duration');
-  setToolStatus(`Tab snoozed until ${sel.options[sel.selectedIndex]?.text || '稍后'}`);
+  setToolStatus(tr("标签已暂存，重新打开时间：{0}", sel.options[sel.selectedIndex]?.text || tr("稍后")));
 });
 
 // Workspace tools
@@ -760,17 +765,17 @@ async function refreshToolWorkspaces() {
     row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:8px;margin-bottom:3px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);font-size:11px';
     row.innerHTML = `
       <span style="flex:1;color:#c5d5ff;font-family:var(--font-display);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</span>
-      <span style="color:#555a70;flex-shrink:0">${tabCount} 个标签</span>
-      <button class="btn-ghost btn-sm ws-tool-restore" data-name="${esc(name)}" style="padding:3px 8px;font-size:10px">恢复</button>
+      <span style="color:#555a70;flex-shrink:0">${tr("{0} 个标签", tabCount)}</span>
+      <button class="btn-ghost btn-sm ws-tool-restore" data-name="${esc(name)}" style="padding:3px 8px;font-size:10px">${tr("恢复")}</button>
       <button class="btn-ghost btn-sm ws-tool-delete" data-name="${esc(name)}" style="padding:3px 6px;font-size:10px;color:#f28b82">✕</button>`;
     toolWsList.appendChild(row);
   }
 
   toolWsList.querySelectorAll<HTMLButtonElement>('.ws-tool-restore').forEach(btn => {
     btn.addEventListener('click', async () => {
-      setToolStatus(`正在恢复“${btn.dataset.name}”…`);
+      setToolStatus(tr("正在恢复“{0}”…", btn.dataset.name));
       const res = await sendMsg({ type: 'restore-workspace', name: btn.dataset.name });
-      setToolStatus(res?.error ? res.error : `已在新窗口恢复“${btn.dataset.name}”`, Boolean(res?.error));
+      setToolStatus(res?.error ? res.error : tr("已在新窗口恢复“{0}”", btn.dataset.name), Boolean(res?.error));
     });
   });
 
@@ -785,12 +790,12 @@ async function refreshToolWorkspaces() {
 $<HTMLButtonElement>('tool-workspace-save').addEventListener('click', async () => {
   const input = $<HTMLInputElement>('tool-workspace-name');
   const name = input.value.trim();
-  if (!name) { setToolStatus('请输入工作区名称', true); return; }
-  setToolStatus('正在保存工作区…');
+  if (!name) { setToolStatus(tr("请输入工作区名称"), true); return; }
+  setToolStatus(tr("正在保存工作区…"));
   const res = await sendMsg({ type: 'save-workspace', name });
   if (res?.error) { setToolStatus(res.error, true); return; }
   input.value = '';
-  setToolStatus(`已保存工作区“${name}”`);
+  setToolStatus(tr("已保存工作区“{0}”", name));
   await refreshToolWorkspaces();
 });
 
@@ -800,14 +805,14 @@ document.querySelectorAll<HTMLButtonElement>('.copy-btn[data-copy]').forEach(btn
   btn.addEventListener('click', () => {
     void navigator.clipboard.writeText(btn.dataset.copy!);
     const orig = btn.textContent;
-    btn.textContent = '已复制！';
+    btn.textContent = tr("已复制！");
     setTimeout(() => { btn.textContent = orig; }, 1500);
   });
 });
 
 document.getElementById('chrome-ai-check-btn')?.addEventListener('click', async () => {
   const btn = document.getElementById('chrome-ai-check-btn') as HTMLButtonElement;
-  btn.textContent = '正在检测…';
+  btn.textContent = tr("正在检测…");
   btn.disabled = true;
   chromeAIAvailable = await checkChromeAI();
   if (chromeAIAvailable) {
@@ -815,8 +820,8 @@ document.getElementById('chrome-ai-check-btn')?.addEventListener('click', async 
     const p = PROVIDERS.find(pr => pr.id === 'chrome-ai')!;
     selectProvider(p);
   } else {
-    btn.textContent = '未检测到，请重启 Chrome 后重试';
-    setTimeout(() => { btn.textContent = '重新检测'; btn.disabled = false; }, 3000);
+    btn.textContent = tr("未检测到，请重启 Chrome 后重试");
+    setTimeout(() => { btn.textContent = tr("重新检测"); btn.disabled = false; }, 3000);
   }
 });
 
@@ -831,7 +836,17 @@ document.querySelectorAll<HTMLButtonElement>('.stale-preset').forEach(button => 
   outStale.textContent = inStaleTabThresholdHours.value;
   void save();
 }));
-initCleanupUI();
-// --- Init ---
-load();
-refreshToolWorkspaces();
+// A language change saves the complete form before reloading localized dynamic views.
+languageSelect.addEventListener('change', async () => {
+  languageSelect.disabled = true;
+  try {
+    await save();
+    localizeDocument();
+    location.reload();
+  } catch (error) {
+    languageSelect.disabled = false;
+    testResult.textContent = error instanceof Error ? error.message : tr('操作失败，请重试');
+  }
+});
+// Initialize language before rendering cleanup, archives, or workspace labels.
+void load().then(() => { initCleanupUI(); return refreshToolWorkspaces(); });

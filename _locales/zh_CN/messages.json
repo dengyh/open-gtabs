@@ -1,0 +1,11 @@
+{
+  "extensionDescription": {
+    "message": "使用 OpenAI 兼容接口、Ollama 或 Chrome 内置 AI 整理标签。支持多语言、分组预览、撤销和隐私控制。"
+  },
+  "organizeCommand": {
+    "message": "整理标签页分组"
+  },
+  "undoCommand": {
+    "message": "撤销上次标签页分组"
+  }
+}

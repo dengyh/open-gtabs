@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "gTabs 中文版",
-  "version": "0.6.0",
-  "version_name": "0.6.0 中文通用接口版",
-  "description": "通过 OpenAI 兼容接口、Ollama 或 Chrome 内置 AI 整理标签，支持分组预览、撤销、站点排除和网址脱敏。",
+  "name": "gTabs",
+  "version": "0.7.0",
+  "version_name": "0.7.0",
+  "description": "__MSG_extensionDescription__",
   "permissions": [
     "tabs",
     "tabGroups",
@@ -22,7 +22,8 @@
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
-    }
+    },
+    "default_title": "gTabs"
   },
   "background": {
     "service_worker": "background.js"
@@ -33,14 +34,14 @@
         "default": "Ctrl+Shift+G",
         "mac": "Command+Shift+G"
       },
-      "description": "整理标签页分组"
+      "description": "__MSG_organizeCommand__"
     },
     "undo-grouping": {
       "suggested_key": {
         "default": "Ctrl+Shift+Z",
         "mac": "Command+Shift+Z"
       },
-      "description": "撤销上次标签页分组"
+      "description": "__MSG_undoCommand__"
     }
   },
   "options_page": "options.html",
@@ -55,5 +56,6 @@
   },
   "optional_host_permissions": [
     "https://*/*"
-  ]
+  ],
+  "default_locale": "en"
 }

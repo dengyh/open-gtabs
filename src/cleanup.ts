@@ -1,3 +1,4 @@
+import { tr } from './i18n';
 import { getSettings, getSuggestions } from './storage';
 import type { Color, Settings } from './types';
 
@@ -63,10 +64,10 @@ export async function previewCleanup(windowId: number): Promise<CleanupPreview> 
 function selectedPreview(previewId: string, windowId: number, ids: number[]): CleanupTab[] {
   const preview = previews.get(previewId);
   if (!preview || preview.windowId !== windowId || Date.now() - preview.createdAt > 15 * 60000)
-    throw new Error('清理预览已过期或窗口已变化，请刷新列表后重试。');
-  if (!Array.isArray(ids) || !ids.length) throw new Error('请先勾选需要处理的标签。');
+    throw new Error(tr("清理预览已过期或窗口已变化，请刷新列表后重试。"));
+  if (!Array.isArray(ids) || !ids.length) throw new Error(tr("请先勾选需要处理的标签。"));
   const selected = preview.tabs.filter(t => ids.includes(t.id));
-  if (selected.length !== new Set(ids).size) throw new Error('标签列表已变化，请刷新后重试。');
+  if (selected.length !== new Set(ids).size) throw new Error(tr("标签列表已变化，请刷新后重试。"));
   return selected;
 }
 export async function listArchives(): Promise<ArchiveBatch[]> {
@@ -75,7 +76,7 @@ export async function listArchives(): Promise<ArchiveBatch[]> {
 }
 async function persistArchives(batches: ArchiveBatch[]): Promise<void> {
   if (new TextEncoder().encode(JSON.stringify(batches)).byteLength > 8 * 1024 * 1024)
-    throw new Error('归档空间接近上限，请删除不再需要的归档后重试；尚未关闭标签。');
+    throw new Error(tr("归档空间接近上限，请删除不再需要的归档后重试；尚未关闭标签。"));
   await chrome.storage.local.set({ tabArchives: batches });
 }
 export function archiveAndClose(previewId: string, windowId: number, ids: number[]): Promise<CleanupResult> {
@@ -121,7 +122,7 @@ export function dismissCleanup(previewId: string, windowId: number, ids: number[
     const dismissals = await getDismissals();
     for (const key of Object.keys(dismissals)) if (dismissals[key].until <= Date.now()) delete dismissals[key];
     for (const tab of selected) dismissals[dismissalKey(tab)] = { until: forever ? Number.MAX_SAFE_INTEGER : Date.now() + 7 * 86400000 };
-    if (Object.keys(dismissals).length > 5000) throw new Error('保留记录已满，请先重置保留记录。');
+    if (Object.keys(dismissals).length > 5000) throw new Error(tr("保留记录已满，请先重置保留记录。"));
     await chrome.storage.local.set({ cleanupDismissals: dismissals });
     previews.delete(previewId);
     await refreshCleanupReminder().catch(() => {});
@@ -136,7 +137,7 @@ export function deleteArchive(id: string): Promise<void> {
 export function restoreArchive(id: string, windowId: number, entryIds?: string[]): Promise<{ restored: number; existing: number; failed: number }> {
   return serial(async () => {
     const batch = (await listArchives()).find(a => a.id === id);
-    if (!batch) throw new Error('归档不存在，请刷新列表。');
+    if (!batch) throw new Error(tr("归档不存在，请刷新列表。"));
     const selected = batch.tabs.filter(t => !entryIds || entryIds.includes(t.entryId));
     const existingUrls = new Set((await chrome.tabs.query({ windowId })).map(t => t.url));
     const groups = new Map<number, { ids: number[]; tab: ArchiveEntry }>();
@@ -158,7 +159,7 @@ export function restoreArchive(id: string, windowId: number, entryIds?: string[]
       try {
         const groupId = await chrome.tabs.group({ tabIds: ids as [number, ...number[]], createProperties: { windowId } });
         await chrome.tabGroups.update(groupId, { title: tab.groupName || '', color: tab.groupColor || 'grey', collapsed: tab.collapsed || false });
-      } catch { throw new Error(`已重新打开 ${result.restored} 个标签，但部分分组恢复失败。归档仍保留，可查看当前窗口。`); }
+      } catch { throw new Error(tr("已重新打开 {0} 个标签，但部分分组恢复失败。归档仍保留，可查看当前窗口。", result.restored)); }
     }
     return result;
   });
@@ -173,9 +174,9 @@ export async function refreshCleanupReminder(): Promise<void> {
   let count = 0;
   for (const window of windows) if (window.id !== undefined && !window.incognito) count += (await candidates(window.id)).length;
   await chrome.storage.local.set({ cleanupSummary: { count, checkedAt: Date.now() } });
-  await chrome.action.setTitle?.({ title: count ? `gTabs · ${count} 个闲置标签可检查` : 'gTabs 中文版' });
+  await chrome.action.setTitle?.({ title: count ? tr("gTabs · {0} 个闲置标签可检查", count) : 'gTabs' });
   if (!(await getSuggestions())?.length) {
-    await chrome.action.setBadgeText({ text: count ? '清' : '' });
+    await chrome.action.setBadgeText({ text: count ? tr("清") : '' });
     if (count) await chrome.action.setBadgeBackgroundColor({ color: '#b87819' });
   }
 }

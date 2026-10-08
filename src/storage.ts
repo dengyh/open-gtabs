@@ -1,3 +1,4 @@
+import { tr, normalizeLanguage, setLanguage } from './i18n';
 import type {
   Settings,
   GroupSuggestion,
@@ -68,6 +69,7 @@ function sanitizeSettings(input: Partial<Settings>): Settings {
     : DEFAULT_SETTINGS.reorgSchedule;
   return {
     ...s,
+    language: normalizeLanguage(s.language),
     provider: s.provider === 'tt-switch' ? 'openai-compatible' : typeof s.provider === 'string' ? s.provider : DEFAULT_SETTINGS.provider,
     baseUrl: typeof s.baseUrl === 'string' ? s.baseUrl : DEFAULT_SETTINGS.baseUrl,
     apiKey: s.provider === 'tt-switch' && !isLegacyLocalEndpoint(s.baseUrl) ? '' : typeof s.apiKey === 'string' ? s.apiKey.trim() : DEFAULT_SETTINGS.apiKey,
@@ -102,7 +104,9 @@ function sanitizeSettings(input: Partial<Settings>): Settings {
 export async function getSettings(): Promise<Settings> {
   const local = await chrome.storage.local.get([K.settings, K_API_KEY_LOCAL]);
   if (local[K.settings] != null) {
-    return sanitizeSettings({ ...(local[K.settings] as Settings), apiKey: String(local[K_API_KEY_LOCAL] ?? '') });
+    const settings = sanitizeSettings({ ...(local[K.settings] as Settings), apiKey: String(local[K_API_KEY_LOCAL] ?? '') });
+    setLanguage(settings.language);
+    return settings;
   }
   const legacy = await chrome.storage.sync.get(K.settings);
   const imported = legacy[K.settings] as Partial<Settings> | undefined;
@@ -115,6 +119,7 @@ export async function saveSettings(settings: Settings): Promise<void> {
   const { apiKey, ...localSettings } = sanitizeSettings(settings);
   await chrome.storage.local.set({ [K.settings]: { ...localSettings, apiKey: '' }, [K_API_KEY_LOCAL]: apiKey });
   await chrome.storage.sync.remove(K.settings);
+  setLanguage(localSettings.language);
 }
 
 // --- Weighted Affinity (local) ---
@@ -658,7 +663,7 @@ export async function exportAll(): Promise<ExportData> {
 }
 
 export async function importAll(data: ExportData): Promise<void> {
-  if (!data || typeof data !== 'object') throw new Error('导入数据无效');
+  if (!data || typeof data !== 'object') throw new Error(tr("导入数据无效"));
 
   // Preserve existing API key — never overwrite from import
   const currentSettings = await getSettings();

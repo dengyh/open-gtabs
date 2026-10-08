@@ -46,6 +46,7 @@ export function resetStores() {
 
 export function resetAllMocks() {
   resetStores();
+  vi.mocked(chrome.i18n.getUILanguage).mockReset().mockReturnValue('zh-CN');
   groupIdCounter = 100;
   groupedTabs.clear();
   vi.mocked(chrome.tabs.query).mockReset().mockResolvedValue([]);
@@ -112,6 +113,7 @@ const groupedTabs = new Map<number, number>();
 let groupIdCounter = 100;
 
 (globalThis as any).chrome = {
+  i18n: { getUILanguage: vi.fn(() => 'zh-CN') },
   tabs: {
     query: vi.fn(() => Promise.resolve([])),
     group: vi.fn(() => Promise.resolve(groupIdCounter++)),

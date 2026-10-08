@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
-<title>gTabs 设置</title>
+<title data-i18n="gTabs 设置">gTabs 设置</title>
 <style>
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -230,53 +230,59 @@
 
   <div class="page-header">
     <div class="logo-mark">🗂️</div>
-    <div><h1>gTabs 设置</h1><p>中文通用接口版 · 设置自动保存</p></div>
+    <div><h1 data-i18n="gTabs 设置">gTabs 设置</h1><p data-i18n="设置自动保存">设置自动保存</p></div>
+  </div>
+
+  <div class="form-group">
+    <label for="language" data-i18n="界面语言 / Language">界面语言 / Language</label>
+    <select id="language"><option value="auto" data-i18n="跟随浏览器">跟随浏览器</option><option value="zh-CN">简体中文</option><option value="en">English</option></select>
+    <p class="slider-desc" data-i18n="新建 AI 分组名称跟随所选语言；已有分组名称保持不变。">新建 AI 分组名称跟随所选语言；已有分组名称保持不变。</p>
   </div>
 
   <!-- Tab bar -->
   <div class="tab-bar">
-    <button class="tab-btn active" data-tab="provider">🤖 模型服务</button>
-    <button class="tab-btn" data-tab="behavior">⚙️ 整理方式</button>
-    <button class="tab-btn" data-tab="rules">🔒 分组规则</button>
-    <button class="tab-btn" data-tab="tools">⚡ 实用工具</button>
-    <button class="tab-btn" data-tab="cleanup">🧹 清理</button>
-    <button class="tab-btn" data-tab="archives">🗃️ 归档</button>
+    <button class="tab-btn active" data-tab="provider" data-i18n="🤖 模型服务">🤖 模型服务</button>
+    <button class="tab-btn" data-tab="behavior" data-i18n="⚙️ 整理方式">⚙️ 整理方式</button>
+    <button class="tab-btn" data-tab="rules" data-i18n="🔒 分组规则">🔒 分组规则</button>
+    <button class="tab-btn" data-tab="tools" data-i18n="⚡ 实用工具">⚡ 实用工具</button>
+    <button class="tab-btn" data-tab="cleanup" data-i18n="🧹 清理">🧹 清理</button>
+    <button class="tab-btn" data-tab="archives" data-i18n="🗃️ 归档">🗃️ 归档</button>
   </div>
 
   <!-- ═══ TAB: Provider ═══ -->
   <div class="tab-panel active" data-tab="provider">
     <div class="section">
-      <div class="section-header"><div class="section-icon">🤖</div><h2>模型服务</h2></div>
+      <div class="section-header"><div class="section-icon">🤖</div><h2 data-i18n="模型服务">模型服务</h2></div>
       <div class="provider-grid" id="provider-grid"></div>
 
       <!-- Chrome AI setup guide — shown when chrome-ai selected but unavailable -->
       <div class="chrome-ai-setup hidden" id="chrome-ai-setup">
-        <h3>⚡ Chrome 内置 AI（Gemini Nano）</h3>
-        <p class="step-body" style="margin-bottom:14px">当前浏览器尚未提供可用的内置模型接口。支持情况取决于 Chrome 版本、设备条件和模型下载状态。可以重新检测，或改用 OpenAI 兼容接口。</p>
+        <h3 data-i18n="⚡ Chrome 内置 AI（Gemini Nano）">⚡ Chrome 内置 AI（Gemini Nano）</h3>
+        <p class="step-body" style="margin-bottom:14px" data-i18n="当前浏览器尚未提供可用的内置模型接口。支持情况取决于 Chrome 版本、设备条件和模型下载状态。可以重新检测，或改用 OpenAI 兼容接口。">当前浏览器尚未提供可用的内置模型接口。支持情况取决于 Chrome 版本、设备条件和模型下载状态。可以重新检测，或改用 OpenAI 兼容接口。</p>
         <div class="setup-actions">
-          <button class="btn btn-sm" id="chrome-ai-check-btn">重新检测</button>
-          <button class="btn-ghost btn-sm" id="chrome-ai-skip-btn">改用 OpenAI 兼容接口</button>
+          <button class="btn btn-sm" id="chrome-ai-check-btn" data-i18n="重新检测">重新检测</button>
+          <button class="btn-ghost btn-sm" id="chrome-ai-skip-btn" data-i18n="改用 OpenAI 兼容接口">改用 OpenAI 兼容接口</button>
         </div>
       </div>
 
       <div class="form-group hidden" id="key-row">
-        <label for="apiKey">API Key（服务要求时填写） <a id="signup-link" href="#" target="_blank" hidden>查看服务说明 →</a></label>
-        <input type="password" id="apiKey" placeholder="填写此模型服务的 API Key；无认证服务可留空" />
-        <div class="slider-desc" style="margin-top:6px">标签标题和脱敏网址会发送到你配置的模型接口；本机代理也可能转发给远程服务。</div>
+        <label for="apiKey"><span data-i18n="API Key（服务要求时填写）">API Key（服务要求时填写）</span> <a id="signup-link" href="#" target="_blank" hidden data-i18n="查看服务说明 →">查看服务说明 →</a></label>
+        <input type="password" id="apiKey" placeholder="填写此模型服务的 API Key；无认证服务可留空"  data-i18n-placeholder="填写此模型服务的 API Key；无认证服务可留空" />
+        <div class="slider-desc" style="margin-top:6px" data-i18n="标签标题和脱敏网址会发送到你配置的模型接口；本机代理也可能转发给远程服务。">标签标题和脱敏网址会发送到你配置的模型接口；本机代理也可能转发给远程服务。</div>
       </div>
       <div class="form-group hidden" id="custom-endpoint-row">
-        <label for="base-url">接口基础地址（Base URL）</label>
-        <input type="text" id="base-url" placeholder="https://api.example.com/v1 或 http://localhost:8000/v1" />
-        <button class="btn-ghost btn-sm" id="authorize-endpoint" type="button" hidden style="margin-top:8px">授权此接口</button>
+        <label for="base-url" data-i18n="接口基础地址（Base URL）">接口基础地址（Base URL）</label>
+        <input type="text" id="base-url" placeholder="https://api.example.com/v1 或 http://localhost:8000/v1"  data-i18n-placeholder="https://api.example.com/v1 或 http://localhost:8000/v1" />
+        <button class="btn-ghost btn-sm" id="authorize-endpoint" type="button" hidden style="margin-top:8px" data-i18n="授权此接口">授权此接口</button>
         <p class="slider-desc" id="endpoint-status" role="status"></p>
-        <label for="custom-model" style="margin-top:12px">当前模型 ID（也可手动填写）</label>
-        <input type="text" id="custom-model" placeholder="填写服务支持的模型 ID" />
-        <div class="slider-desc" style="margin-top:6px">使用 OpenAI Chat Completions 兼容协议；填写基础地址，不包含 /chat/completions。远程服务须使用 HTTPS，本机支持 HTTP。更换基础地址会清空密钥，请重新填写。密钥只保存在本机，不同步、不导出；标题和路径仍可能包含敏感内容。</div>
+        <label for="custom-model" style="margin-top:12px" data-i18n="当前模型 ID（也可手动填写）">当前模型 ID（也可手动填写）</label>
+        <input type="text" id="custom-model" placeholder="填写服务支持的模型 ID"  data-i18n-placeholder="填写服务支持的模型 ID" />
+        <div class="slider-desc" style="margin-top:6px" data-i18n="使用 OpenAI Chat Completions 兼容协议；填写基础地址，不包含 /chat/completions。远程服务须使用 HTTPS，本机支持 HTTP。更换基础地址会清空密钥，请重新填写。密钥只保存在本机，不同步、不导出；标题和路径仍可能包含敏感内容。">使用 OpenAI Chat Completions 兼容协议；填写基础地址，不包含 /chat/completions。远程服务须使用 HTTPS，本机支持 HTTP。更换基础地址会清空密钥，请重新填写。密钥只保存在本机，不同步、不导出；标题和路径仍可能包含敏感内容。</div>
       </div>
       <div class="form-row" style="margin-top:14px">
-        <div class="form-group" id="model-select-row"><label for="model-select">模型</label><select id="model-select" aria-label="选择模型"></select><button class="btn-ghost btn-sm" id="refresh-models" type="button" hidden>刷新模型列表</button><p class="slider-desc" id="models-status" role="status"></p></div>
+        <div class="form-group" id="model-select-row"><label for="model-select" data-i18n="模型">模型</label><select id="model-select" aria-label="选择模型" data-i18n-aria-label="选择模型" ></select><button class="btn-ghost btn-sm" id="refresh-models" type="button" hidden data-i18n="刷新模型列表">刷新模型列表</button><p class="slider-desc" id="models-status" role="status"></p></div>
         <div class="form-action" style="display:flex;align-items:center;gap:8px">
-          <button class="btn btn-sm" id="test-btn">测试连接</button>
+          <button class="btn btn-sm" id="test-btn" data-i18n="测试连接">测试连接</button>
           <span class="test-result" id="test-result"></span>
         </div>
       </div>
@@ -286,53 +292,53 @@
   <!-- ═══ TAB: Behavior ═══ -->
   <div class="tab-panel" data-tab="behavior">
     <div class="section">
-      <div class="section-header"><div class="section-icon">🛡️</div><h2>隐私与数据发送</h2></div>
-      <p class="slider-desc" style="margin-bottom:14px">仅发送待整理标签的标题和脱敏网址（域名、路径）。不发送网址账号密码、查询参数、片段或历史学习记录。复用分组时会发送含可参与整理标签的现有分组名称。标题和路径仍可能包含敏感信息，请将工作内网站点加入排除列表。</p>
-      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="excludePrivateHosts" aria-label="排除内网地址" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>排除内网地址</span><p>忽略私有 IPv4、IPv6 地址、localhost、单标签主机名及 .local / .internal 等地址。不查询 DNS；公司公网域名需手动排除。</p></div></div>
-      <label for="excludedDomains">不发送给 AI 的域名</label>
+      <div class="section-header"><div class="section-icon">🛡️</div><h2 data-i18n="隐私与数据发送">隐私与数据发送</h2></div>
+      <p class="slider-desc" style="margin-bottom:14px" data-i18n="仅发送待整理标签的标题和脱敏网址（域名、路径）。不发送网址账号密码、查询参数、片段或历史学习记录。复用分组时会发送含可参与整理标签的现有分组名称。标题和路径仍可能包含敏感信息，请将工作内网站点加入排除列表。">仅发送待整理标签的标题和脱敏网址（域名、路径）。不发送网址账号密码、查询参数、片段或历史学习记录。复用分组时会发送含可参与整理标签的现有分组名称。标题和路径仍可能包含敏感信息，请将工作内网站点加入排除列表。</p>
+      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="excludePrivateHosts" aria-label="排除内网地址"  data-i18n-aria-label="排除内网地址" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span data-i18n="排除内网地址">排除内网地址</span><p data-i18n="忽略私有 IPv4、IPv6 地址、localhost、单标签主机名及 .local / .internal 等地址。不查询 DNS；公司公网域名需手动排除。">忽略私有 IPv4、IPv6 地址、localhost、单标签主机名及 .local / .internal 等地址。不查询 DNS；公司公网域名需手动排除。</p></div></div>
+      <label for="excludedDomains" data-i18n="不发送给 AI 的域名">不发送给 AI 的域名</label>
       <textarea id="excludedDomains" rows="4" placeholder="example.com&#10;*.company.example" style="width:100%;margin-top:8px;padding:10px;background:rgba(0,0,0,.3);color:var(--text);border:1px solid var(--border);border-radius:8px"></textarea>
-      <p class="slider-desc">每行一个域名，同时匹配其子域名；也支持逗号分隔。排除仅约束 AI，本地手动分组和规则仍可使用。全部设置和规则仅保存在本机。</p>
+      <p class="slider-desc" data-i18n="每行一个域名，同时匹配其子域名；也支持逗号分隔。排除仅约束 AI，本地手动分组和规则仍可使用。全部设置和规则仅保存在本机。">每行一个域名，同时匹配其子域名；也支持逗号分隔。排除仅约束 AI，本地手动分组和规则仍可使用。全部设置和规则仅保存在本机。</p>
     </div>
     <div class="section">
-      <div class="section-header"><div class="section-icon">⚡️</div><h2>标签整理</h2></div>
+      <div class="section-header"><div class="section-icon">⚡️</div><h2 data-i18n="标签整理">标签整理</h2></div>
 
       <div class="slider-group">
-        <div class="slider-header"><div><div class="slider-label">最多分组数</div><div class="slider-desc">限制 AI 为本次待整理标签生成的分组数量</div></div><span class="slider-val" id="maxGroupsVal">6</span></div>
+        <div class="slider-header"><div><div class="slider-label" data-i18n="最多分组数">最多分组数</div><div class="slider-desc" data-i18n="限制 AI 为本次待整理标签生成的分组数量">限制 AI 为本次待整理标签生成的分组数量</div></div><span class="slider-val" id="maxGroupsVal">6</span></div>
         <input type="range" id="maxGroups" min="2" max="15" value="6" />
       </div>
       <div class="slider-group">
-        <div class="slider-header"><div><div class="slider-label">自动整理阈值</div><div class="slider-desc">每个窗口的可参与 AI 整理的未分组标签达到此数量时触发</div></div><span class="slider-val" id="thresholdVal">5</span></div>
+        <div class="slider-header"><div><div class="slider-label" data-i18n="自动整理阈值">自动整理阈值</div><div class="slider-desc" data-i18n="每个窗口的可参与 AI 整理的未分组标签达到此数量时触发">每个窗口的可参与 AI 整理的未分组标签达到此数量时触发</div></div><span class="slider-val" id="thresholdVal">5</span></div>
         <input type="range" id="threshold" min="2" max="25" value="5" />
       </div>
       <div class="slider-group" style="margin-bottom:20px">
-        <div class="slider-header"><div><div class="slider-label">标题长度限制</div><div class="slider-desc">发送给模型的单个标签标题最大字符数</div></div><span class="slider-val" id="maxTitleVal">80</span></div>
+        <div class="slider-header"><div><div class="slider-label" data-i18n="标题长度限制">标题长度限制</div><div class="slider-desc" data-i18n="发送给模型的单个标签标题最大字符数">发送给模型的单个标签标题最大字符数</div></div><span class="slider-val" id="maxTitleVal">80</span></div>
         <input type="range" id="maxTitleLength" min="20" max="200" value="80" step="5" />
       </div>
 
-      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="autoTrigger" aria-label="自动整理" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>自动整理</span><p>每个普通窗口独立计数和冷却，达到阈值后自动分组；冷却期间的新标签会补查，不跨窗口移动。</p></div></div>
-      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="mergeMode" aria-label="保护并复用已有分组" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>保护并复用已有分组</span><p>只整理未分组标签；建议名称与已有分组相同时直接加入。</p></div></div>
-      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="silentAutoAdd" aria-label="本地规则快速归组" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>本地规则快速归组</span><p>根据域名规则和本机学习记录，把新标签直接加入对应分组，不调用模型。</p></div></div>
-      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="autoPinApps" aria-label="自动固定网页应用" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>自动固定网页应用</span><p>自动将 Gmail、日历、Slack、Spotify 等固定在标签栏左侧。</p></div></div>
-      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="smartUngroup" aria-label="智能移出分组" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>智能移出分组</span><p>标签跳转到不相关的域名后，自动移出原分组。</p></div></div>
+      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="autoTrigger" aria-label="自动整理"  data-i18n-aria-label="自动整理" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span data-i18n="自动整理">自动整理</span><p data-i18n="每个普通窗口独立计数和冷却，达到阈值后自动分组；冷却期间的新标签会补查，不跨窗口移动。">每个普通窗口独立计数和冷却，达到阈值后自动分组；冷却期间的新标签会补查，不跨窗口移动。</p></div></div>
+      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="mergeMode" aria-label="保护并复用已有分组"  data-i18n-aria-label="保护并复用已有分组" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span data-i18n="保护并复用已有分组">保护并复用已有分组</span><p data-i18n="只整理未分组标签；建议名称与已有分组相同时直接加入。">只整理未分组标签；建议名称与已有分组相同时直接加入。</p></div></div>
+      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="silentAutoAdd" aria-label="本地规则快速归组"  data-i18n-aria-label="本地规则快速归组" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span data-i18n="本地规则快速归组">本地规则快速归组</span><p data-i18n="根据域名规则和本机学习记录，把新标签直接加入对应分组，不调用模型。">根据域名规则和本机学习记录，把新标签直接加入对应分组，不调用模型。</p></div></div>
+      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="autoPinApps" aria-label="自动固定网页应用"  data-i18n-aria-label="自动固定网页应用" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span data-i18n="自动固定网页应用">自动固定网页应用</span><p data-i18n="自动将 Gmail、日历、Slack、Spotify 等固定在标签栏左侧。">自动将 Gmail、日历、Slack、Spotify 等固定在标签栏左侧。</p></div></div>
+      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="smartUngroup" aria-label="智能移出分组"  data-i18n-aria-label="智能移出分组" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span data-i18n="智能移出分组">智能移出分组</span><p data-i18n="标签跳转到不相关的域名后，自动移出原分组。">标签跳转到不相关的域名后，自动移出原分组。</p></div></div>
     </div>
 
     <div class="section">
-      <div class="section-header"><div class="section-icon">🧠</div><h2>本地学习</h2><span class="section-desc">保存在本机</span></div>
-      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="enableCorrectionTracking" aria-label="记录手动调整" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>记录手动调整</span><p>记录分组改名和标签移动，手动修正的权重为普通记录的三倍。</p></div></div>
-      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="enableRejectionMemory" aria-label="记住拒绝的分组" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>记住拒绝的分组</span><p>记住被移除的分组建议，减少重复推荐。</p></div></div>
-      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="enableGroupDrift" aria-label="分组一致性检查" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>分组一致性检查</span><p>当组内主题变得分散时，提示需要重新整理。</p></div></div>
-      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="enablePatternMining" aria-label="分析常见组合" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>分析常见组合</span><p>在本机分析整理历史，记录经常出现在同一组的域名。</p></div></div>
+      <div class="section-header"><div class="section-icon">🧠</div><h2 data-i18n="本地学习">本地学习</h2><span class="section-desc" data-i18n="保存在本机">保存在本机</span></div>
+      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="enableCorrectionTracking" aria-label="记录手动调整"  data-i18n-aria-label="记录手动调整" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span data-i18n="记录手动调整">记录手动调整</span><p data-i18n="记录分组改名和标签移动，手动修正的权重为普通记录的三倍。">记录分组改名和标签移动，手动修正的权重为普通记录的三倍。</p></div></div>
+      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="enableRejectionMemory" aria-label="记住拒绝的分组"  data-i18n-aria-label="记住拒绝的分组" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span data-i18n="记住拒绝的分组">记住拒绝的分组</span><p data-i18n="记住被移除的分组建议，减少重复推荐。">记住被移除的分组建议，减少重复推荐。</p></div></div>
+      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="enableGroupDrift" aria-label="分组一致性检查"  data-i18n-aria-label="分组一致性检查" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span data-i18n="分组一致性检查">分组一致性检查</span><p data-i18n="当组内主题变得分散时，提示需要重新整理。">当组内主题变得分散时，提示需要重新整理。</p></div></div>
+      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="enablePatternMining" aria-label="分析常见组合"  data-i18n-aria-label="分析常见组合" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span data-i18n="分析常见组合">分析常见组合</span><p data-i18n="在本机分析整理历史，记录经常出现在同一组的域名。">在本机分析整理历史，记录经常出现在同一组的域名。</p></div></div>
       <div class="slider-group" style="margin-top:16px">
-        <div class="slider-header"><div><div class="slider-label">一致性阈值</div><div class="slider-desc">分组一致性低于此百分比时标记提示</div></div><span class="slider-val" id="driftThresholdVal">50</span></div>
+        <div class="slider-header"><div><div class="slider-label" data-i18n="一致性阈值">一致性阈值</div><div class="slider-desc" data-i18n="分组一致性低于此百分比时标记提示">分组一致性低于此百分比时标记提示</div></div><span class="slider-val" id="driftThresholdVal">50</span></div>
         <input type="range" id="groupDriftThreshold" min="20" max="80" value="50" step="5" />
       </div>
     </div>
 
     <div class="section">
-      <div class="section-header"><div class="section-icon">📅</div><h2>定时重新整理</h2></div>
-      <div class="form-group"><label>执行频率</label><select id="reorgSchedule"><option value="off">关闭</option><option value="daily">每天</option><option value="weekly">每周</option></select></div>
+      <div class="section-header"><div class="section-icon">📅</div><h2 data-i18n="定时重新整理">定时重新整理</h2></div>
+      <div class="form-group"><label data-i18n="执行频率">执行频率</label><select id="reorgSchedule"><option value="off" data-i18n="关闭">关闭</option><option value="daily" data-i18n="每天">每天</option><option value="weekly" data-i18n="每周">每周</option></select></div>
       <div class="slider-group" style="margin-top:16px">
-        <div class="slider-header"><div><div class="slider-label">执行时间</div><div class="slider-desc">按本机时区执行，填写小时（0–23）</div></div><span class="slider-val" id="reorgTimeVal">9</span></div>
+        <div class="slider-header"><div><div class="slider-label" data-i18n="执行时间">执行时间</div><div class="slider-desc" data-i18n="按本机时区执行，填写小时（0–23）">按本机时区执行，填写小时（0–23）</div></div><span class="slider-val" id="reorgTimeVal">9</span></div>
         <input type="range" id="reorgTime" min="0" max="23" value="9" />
       </div>
     </div>
@@ -341,21 +347,21 @@
   <!-- ═══ TAB: Rules ═══ -->
   <div class="tab-panel" data-tab="rules">
     <div class="section">
-      <div class="section-header"><div class="section-icon">📌</div><h2>锁定分组</h2><span class="section-desc">重新整理时保留</span></div>
+      <div class="section-header"><div class="section-icon">📌</div><h2 data-i18n="锁定分组">锁定分组</h2><span class="section-desc" data-i18n="重新整理时保留">重新整理时保留</span></div>
       <div id="pinned-groups"></div>
       <div class="form-row" style="margin-top:10px">
-        <div class="form-group"><input type="text" id="new-pinned-group" placeholder="输入要锁定的分组名称" /></div>
-        <div class="form-action"><button class="btn-ghost btn-sm" id="add-pinned">+ 锁定</button></div>
+        <div class="form-group"><input type="text" id="new-pinned-group" placeholder="输入要锁定的分组名称"  data-i18n-placeholder="输入要锁定的分组名称" /></div>
+        <div class="form-action"><button class="btn-ghost btn-sm" id="add-pinned" data-i18n="+ 锁定">+ 锁定</button></div>
       </div>
     </div>
 
     <div class="section">
-      <div class="section-header"><div class="section-icon">🔒</div><h2>域名分组规则</h2><span class="section-desc">优先于模型建议</span></div>
+      <div class="section-header"><div class="section-icon">🔒</div><h2 data-i18n="域名分组规则">域名分组规则</h2><span class="section-desc" data-i18n="优先于模型建议">优先于模型建议</span></div>
       <div id="domain-rules"></div>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        <button class="btn-ghost" style="flex:1" id="add-rule">+ 添加规则</button>
-        <button class="btn-ghost" id="export-rules-csv">⬇ 导出 CSV</button>
-        <button class="btn-ghost" id="import-rules-csv">⬆ 导入 CSV</button>
+        <button class="btn-ghost" style="flex:1" id="add-rule" data-i18n="+ 添加规则">+ 添加规则</button>
+        <button class="btn-ghost" id="export-rules-csv" data-i18n="⬇ 导出 CSV">⬇ 导出 CSV</button>
+        <button class="btn-ghost" id="import-rules-csv" data-i18n="⬆ 导入 CSV">⬆ 导入 CSV</button>
       </div>
       <input type="file" id="import-rules-file" accept=".csv" hidden />
     </div>
@@ -364,56 +370,56 @@
   <!-- ═══ TAB: Tools ═══ -->
   <div class="tab-panel" data-tab="tools">
     <div class="section">
-      <div class="section-header"><div class="section-icon">⚡</div><h2>实用工具</h2></div>
+      <div class="section-header"><div class="section-icon">⚡</div><h2 data-i18n="实用工具">实用工具</h2></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-        <button class="btn-ghost" id="tool-duplicates">🧬 查找重复标签</button>
-        <button class="btn-ghost" id="tool-focus">🎯 专注当前分组</button>
-        <button class="btn-ghost" id="tool-sort">🔤 分组排序</button>
-        <button class="btn-ghost danger" id="tool-clear">🧹 取消全部分组</button>
-        <button class="btn-ghost" id="tool-export-md">📋 导出 Markdown</button>
+        <button class="btn-ghost" id="tool-duplicates" data-i18n="🧬 查找重复标签">🧬 查找重复标签</button>
+        <button class="btn-ghost" id="tool-focus" data-i18n="🎯 专注当前分组">🎯 专注当前分组</button>
+        <button class="btn-ghost" id="tool-sort" data-i18n="🔤 分组排序">🔤 分组排序</button>
+        <button class="btn-ghost danger" id="tool-clear" data-i18n="🧹 取消全部分组">🧹 取消全部分组</button>
+        <button class="btn-ghost" id="tool-export-md" data-i18n="📋 导出 Markdown">📋 导出 Markdown</button>
       </div>
       <div id="tool-status" style="font-size:11px;color:#7c6af5;min-height:16px;font-weight:600;font-family:var(--font-display);margin-bottom:8px"></div>
       <div id="tool-results"></div>
 
       <hr style="border:none;border-top:1px solid var(--border);margin:16px 0" />
-      <div class="sub-label">💤 暂存当前标签</div>
+      <div class="sub-label" data-i18n="💤 暂存当前标签">💤 暂存当前标签</div>
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
         <select id="tool-snooze-duration" style="flex:1;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 8px;font-size:12px">
-          <option value="3600000">1 小时后</option><option value="10800000">3 小时后</option><option value="28800000">8 小时后</option><option value="86400000" selected>明天</option><option value="604800000">下周</option>
+          <option value="3600000" data-i18n="1 小时后">1 小时后</option><option value="10800000" data-i18n="3 小时后">3 小时后</option><option value="28800000" data-i18n="8 小时后">8 小时后</option><option value="86400000" selected data-i18n="明天">明天</option><option value="604800000" data-i18n="下周">下周</option>
         </select>
-        <button class="btn-ghost" id="tool-snooze">暂存</button>
+        <button class="btn-ghost" id="tool-snooze" data-i18n="暂存">暂存</button>
       </div>
 
       <hr style="border:none;border-top:1px solid var(--border);margin:16px 0" />
-      <div class="sub-label">💾 工作区</div>
+      <div class="sub-label" data-i18n="💾 工作区">💾 工作区</div>
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
-        <input type="text" id="tool-workspace-name" placeholder="将当前窗口保存为工作区…" style="flex:1" />
-        <button class="btn-ghost" id="tool-workspace-save">保存</button>
+        <input type="text" id="tool-workspace-name" placeholder="将当前窗口保存为工作区…" style="flex:1"  data-i18n-placeholder="将当前窗口保存为工作区…" />
+        <button class="btn-ghost" id="tool-workspace-save" data-i18n="保存">保存</button>
       </div>
       <div id="tool-workspace-list"></div>
     </div>
 
     <div class="section">
-      <div class="section-header"><div class="section-icon">📊</div><h2>数据与用量</h2></div>
+      <div class="section-header"><div class="section-icon">📊</div><h2 data-i18n="数据与用量">数据与用量</h2></div>
       <div class="slider-group">
-        <div class="slider-header"><div><div class="slider-label">闲置标签时长（小时）</div><div class="slider-desc">超过此时长的标签可作为闲置标签处理</div></div><span class="slider-val" id="staleVal">48</span></div>
+        <div class="slider-header"><div><div class="slider-label" data-i18n="闲置标签时长（小时）">闲置标签时长（小时）</div><div class="slider-desc" data-i18n="超过此时长的标签可作为闲置标签处理">超过此时长的标签可作为闲置标签处理</div></div><span class="slider-val" id="staleVal">48</span></div>
         <input type="range" id="staleTabThresholdHours" min="1" max="720" value="48" />
-        <div class="form-row"><button class="btn-ghost btn-sm stale-preset" data-hours="168">7 天</button><button class="btn-ghost btn-sm stale-preset" data-hours="336">14 天</button><button class="btn-ghost btn-sm stale-preset" data-hours="720">30 天</button></div>
-        <label><input type="checkbox" id="cleanup-reminder" /> 每小时检查闲置标签，并在插件内提示</label>
+        <div class="form-row"><button class="btn-ghost btn-sm stale-preset" data-hours="168" data-i18n="7 天">7 天</button><button class="btn-ghost btn-sm stale-preset" data-hours="336" data-i18n="14 天">14 天</button><button class="btn-ghost btn-sm stale-preset" data-hours="720" data-i18n="30 天">30 天</button></div>
+        <label><input type="checkbox" id="cleanup-reminder" /> <span data-i18n="每小时检查闲置标签，并在插件内提示">每小时检查闲置标签，并在插件内提示</span></label>
       </div>
       <div class="slider-group" style="margin-bottom:20px">
-        <div class="slider-header"><div><div class="slider-label">估算费用上限（美元）</div><div class="slider-desc">仅针对已知定价的估算；不代表服务商的实际额度。0 为不限。</div></div><span class="slider-val" id="spendingCapVal">0</span></div>
+        <div class="slider-header"><div><div class="slider-label" data-i18n="估算费用上限（美元）">估算费用上限（美元）</div><div class="slider-desc" data-i18n="仅针对已知定价的估算；不代表服务商的实际额度。0 为不限。">仅针对已知定价的估算；不代表服务商的实际额度。0 为不限。</div></div><span class="slider-val" id="spendingCapVal">0</span></div>
         <input type="range" id="spendingCapUSD" min="0" max="100" value="0" step="1" />
       </div>
       <div class="data-actions">
-        <button class="btn-ghost btn-sm" id="export-data">导出设置</button>
-        <button class="btn-ghost btn-sm" id="import-data">导入设置</button>
+        <button class="btn-ghost btn-sm" id="export-data" data-i18n="导出设置">导出设置</button>
+        <button class="btn-ghost btn-sm" id="import-data" data-i18n="导入设置">导入设置</button>
         <input type="file" id="import-file" accept=".json" hidden />
       </div>
       <div class="stats-chip" id="stats-line"></div>
       <div style="overflow-x:auto">
         <table class="cost-table" id="cost-table" hidden>
-          <thead><tr><th>模型服务</th><th>输入 Token</th><th>输出 Token</th><th>估算费用</th></tr></thead>
+          <thead><tr><th data-i18n="模型服务">模型服务</th><th data-i18n="输入 Token">输入 Token</th><th data-i18n="输出 Token">输出 Token</th><th data-i18n="估算费用">估算费用</th></tr></thead>
           <tbody id="cost-body"></tbody>
         </table>
       </div>
@@ -422,19 +428,19 @@
 
   <div class="tab-panel" data-tab="cleanup">
     <div class="section">
-      <div class="section-header"><h2>闲置标签清理</h2></div>
-      <p class="slider-desc">仅检查此设置页所在窗口。跳过正在查看、固定、锁定分组、播放音频及加载中的页面。闲置时长可在“工具”页调整。</p>
-      <p class="slider-desc">先归档，再关闭你勾选的标签。归档可重新打开网址，不会保存未提交的表单或页面登录状态。所有记录只保存在本机。</p>
-      <div class="cleanup-actions"><button class="btn-ghost" id="cleanup-refresh">刷新列表</button><button class="btn-ghost" id="cleanup-select-all">全选 / 取消</button><button class="btn-ghost" id="cleanup-close">归档并关闭所选</button><button class="btn-ghost" id="cleanup-later">7 天后提醒</button><button class="btn-ghost" id="cleanup-keep">保留，不再提醒</button></div>
+      <div class="section-header"><h2 data-i18n="闲置标签清理">闲置标签清理</h2></div>
+      <p class="slider-desc" data-i18n="仅检查此设置页所在窗口。跳过正在查看、固定、锁定分组、播放音频及加载中的页面。闲置时长可在“工具”页调整。">仅检查此设置页所在窗口。跳过正在查看、固定、锁定分组、播放音频及加载中的页面。闲置时长可在“工具”页调整。</p>
+      <p class="slider-desc" data-i18n="先归档，再关闭你勾选的标签。归档可重新打开网址，不会保存未提交的表单或页面登录状态。所有记录只保存在本机。">先归档，再关闭你勾选的标签。归档可重新打开网址，不会保存未提交的表单或页面登录状态。所有记录只保存在本机。</p>
+      <div class="cleanup-actions"><button class="btn-ghost" id="cleanup-refresh" data-i18n="刷新列表">刷新列表</button><button class="btn-ghost" id="cleanup-select-all" data-i18n="全选 / 取消">全选 / 取消</button><button class="btn-ghost" id="cleanup-close" data-i18n="归档并关闭所选">归档并关闭所选</button><button class="btn-ghost" id="cleanup-later" data-i18n="7 天后提醒">7 天后提醒</button><button class="btn-ghost" id="cleanup-keep" data-i18n="保留，不再提醒">保留，不再提醒</button></div>
       <div id="cleanup-status" role="status"></div><div id="cleanup-list"></div>
-      <button class="btn-ghost btn-sm" id="cleanup-reset">重置保留与稍后提醒记录</button>
+      <button class="btn-ghost btn-sm" id="cleanup-reset" data-i18n="重置保留与稍后提醒记录">重置保留与稍后提醒记录</button>
     </div>
   </div>
   <div class="tab-panel" data-tab="archives">
     <div class="section">
-      <div class="section-header"><h2>归档与找回</h2></div>
-      <p class="slider-desc">归档不会自动删除。重新打开到当前窗口，并跳过已经打开的相同网址；原有标签不会被移动。删除归档不会关闭标签。</p>
-      <div class="cleanup-actions"><input id="archive-search" type="search" placeholder="搜索标题、网址或分组…" aria-label="搜索归档" /><button class="btn-ghost" id="archive-refresh">刷新归档</button></div>
+      <div class="section-header"><h2 data-i18n="归档与找回">归档与找回</h2></div>
+      <p class="slider-desc" data-i18n="归档不会自动删除。重新打开到当前窗口，并跳过已经打开的相同网址；原有标签不会被移动。删除归档不会关闭标签。">归档不会自动删除。重新打开到当前窗口，并跳过已经打开的相同网址；原有标签不会被移动。删除归档不会关闭标签。</p>
+      <div class="cleanup-actions"><input id="archive-search" type="search" placeholder="搜索标题、网址或分组…" aria-label="搜索归档"  data-i18n-aria-label="搜索归档"  data-i18n-placeholder="搜索标题、网址或分组…" /><button class="btn-ghost" id="archive-refresh" data-i18n="刷新归档">刷新归档</button></div>
       <div id="archive-status" role="status"></div><div id="archive-list"></div>
     </div>
   </div>

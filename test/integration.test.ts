@@ -345,7 +345,7 @@ describe('E2E Integration: Message dispatch → Background → Storage', () => {
 
     const res = await sendMsg({ type: 'export-markdown' });
     expect(res.status).toBe('done');
-    expect(res.markdown).toContain('# Tab Groups');
+    expect(res.markdown).toContain('# 标签分组');
     expect(res.markdown).toContain('Dev');
     expect(res.markdown).toContain('github.com');
   });

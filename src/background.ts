@@ -1,3 +1,4 @@
+import { tr, setLanguage } from './i18n';
 import type {
   Color,
   GroupSuggestion,
@@ -189,7 +190,7 @@ async function getCurrentWindowId(): Promise<number> {
   if (win?.id === undefined) {
     try { win = await chrome.windows.getCurrent(); } catch { /* ignore */ }
   }
-  if (win?.id === undefined) throw new Error('无法确定当前窗口');
+  if (win?.id === undefined) throw new Error(tr("无法确定当前窗口"));
   return win.id;
 }
 
@@ -209,12 +210,12 @@ export async function saveCurrentWorkspace(name: string): Promise<void> {
 export async function restoreWorkspaceByName(name: string): Promise<void> {
   const workspaces = await getWorkspaces();
   const ws = workspaces[name];
-  if (!ws) throw new Error(`找不到工作区“${name}”`);
+  if (!ws) throw new Error(tr("找不到工作区“{0}”", name));
 
   const newWin = await chrome.windows.create({ focused: true });
-  if (newWin === undefined) throw new Error('无法创建窗口');
+  if (newWin === undefined) throw new Error(tr("无法创建窗口"));
   const windowId = newWin.id;
-  if (windowId === undefined) throw new Error('无法创建窗口');
+  if (windowId === undefined) throw new Error(tr("无法创建窗口"));
 
   const groupTabIds = new Map<string, { tabIds: number[]; color?: Color }>();
 
@@ -289,7 +290,7 @@ export async function snapshotCurrentState(targetWindowId?: number): Promise<Und
 export async function restoreSnapshot(snapshot: UndoSnapshot, targetWindowId?: number): Promise<void> {
   const windowId = targetWindowId ?? await getCurrentWindowId();
   if (snapshot.windowId !== undefined && snapshot.windowId !== windowId) {
-    throw new Error('请切换到上次整理的窗口后再撤销');
+    throw new Error(tr("请切换到上次整理的窗口后再撤销"));
   }
   const currentTabs = await chrome.tabs.query({ windowId });
   const currentIds = new Set(currentTabs.map(tab => tab.id));
@@ -339,15 +340,16 @@ function createContextMenu(props: chrome.contextMenus.CreateProperties): Promise
 }
 
 async function rebuildContextMenusNow(): Promise<void> {
+  await getSettings();
   await removeAllContextMenus();
 
   for (const item of ACTION_CONTEXT_MENUS) {
-    await createContextMenu(item);
+    await createContextMenu({ ...item, title: tr(item.title!) });
   }
 
   await createContextMenu({
     id: CTX_ADD_TO_GROUP_ID,
-    title: '将标签加入分组…',
+    title: tr("将标签加入分组…"),
     contexts: ['page'],
   });
 
@@ -363,7 +365,7 @@ async function rebuildContextMenusNow(): Promise<void> {
     await createContextMenu({
       id: `${CTX_ADD_TO_GROUP_ID}-${group.id}`,
       parentId: CTX_ADD_TO_GROUP_ID,
-      title: group.title || `分组 ${group.id}`,
+      title: group.title || tr("分组 {0}", group.id),
       contexts: ['page'],
     });
   }
@@ -371,7 +373,7 @@ async function rebuildContextMenusNow(): Promise<void> {
   await createContextMenu({
     id: `${CTX_ADD_TO_GROUP_ID}-new`,
     parentId: CTX_ADD_TO_GROUP_ID,
-    title: '+ 新建分组',
+    title: tr("+ 新建分组"),
     contexts: ['page'],
   });
 }
@@ -420,14 +422,14 @@ export async function organize(ungroupedOnly = false, targetWindowId?: number): 
     if (tabs.length < 2) {
       report.items.forEach(t => { if (t.reason === 'unmatched') t.reason = 'insufficient'; });
       await saveSuggestions(null, windowId); await saveReport(report);
-      return { error: '至少需要 2 个符合隐私规则的标签才能整理', report };
+      return { error: tr("至少需要 2 个符合隐私规则的标签才能整理"), report };
     }
 
     // Check spending cap before any LLM calls
     if (settings.spendingCapUSD > 0) {
       const costs = await getCosts();
       if (costs.totalCost >= settings.spendingCapUSD) {
-        throw new Error(`已达到 $${settings.spendingCapUSD.toFixed(2)} 的估算费用上限，可在设置中调整。`);
+        throw new Error(tr("已达到 ${0} 的估算费用上限，可在设置中调整。", settings.spendingCapUSD.toFixed(2)));
       }
     }
 
@@ -510,7 +512,7 @@ export async function organize(ungroupedOnly = false, targetWindowId?: number): 
       await saveReport(report).catch(() => {});
     }
     if (report) await saveSuggestions(null, report.windowId).catch(() => {});
-    return { report, error: e instanceof Error ? e.message : '未知错误' };
+    return { report, error: e instanceof Error ? e.message : tr("未知错误") };
   }
 }
 
@@ -581,7 +583,7 @@ export async function applyGroups(suggestions: GroupSuggestion[], targetWindowId
 export async function undoLastGrouping(targetWindowId?: number): Promise<{ error?: string }> {
   const windowId = targetWindowId ?? await getCurrentWindowId();
   const snapshot = await getUndoSnapshot(windowId);
-  if (!snapshot) return { error: '没有可撤销的分组记录' };
+  if (!snapshot) return { error: tr("没有可撤销的分组记录") };
 
   try {
     await restoreSnapshot(snapshot, windowId);
@@ -589,7 +591,7 @@ export async function undoLastGrouping(targetWindowId?: number): Promise<{ error
     await chrome.storage.local.remove(`organizationReport:${snapshot.windowId ?? await getCurrentWindowId()}`);
     return {};
   } catch (e) {
-    return { error: e instanceof Error ? e.message : '撤销失败' };
+    return { error: e instanceof Error ? e.message : tr("撤销失败") };
   }
 }
 
@@ -620,14 +622,14 @@ export async function consolidateWindows(): Promise<number> {
 
 
 export async function purgeStaleTabs(): Promise<number> {
-  throw new Error('请在清理中心预览并勾选标签，再使用“归档并关闭”。');
+  throw new Error(tr("请在清理中心预览并勾选标签，再使用“归档并关闭”。"));
 }
 
 
 export async function focusCurrentGroup(): Promise<number> {
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (activeTab?.windowId === undefined) throw new Error('没有当前标签');
-  if (!isGroupedTab(activeTab)) throw new Error('当前标签需要先加入分组');
+  if (activeTab?.windowId === undefined) throw new Error(tr("没有当前标签"));
+  if (!isGroupedTab(activeTab)) throw new Error(tr("当前标签需要先加入分组"));
 
   const groups = await chrome.tabGroups.query({ windowId: activeTab.windowId });
   for (const group of groups) {
@@ -676,12 +678,12 @@ export async function exportGroupsAsMarkdown(): Promise<string> {
   const groups = await chrome.tabGroups.query({ windowId });
   const tabs = await chrome.tabs.query({ currentWindow: true });
 
-  const lines: string[] = ['# Tab Groups', ''];
+  const lines: string[] = [`# ${tr('标签分组')}`, ''];
 
   const escMd = (s: string) => s.replace(/[[\]]/g, '\\$&');
 
   for (const group of groups) {
-    lines.push(`## ${group.title || 'Unnamed Group'}`);
+    lines.push(`## ${group.title || tr('未命名')}`);
     const groupTabs = tabs.filter(t => t.groupId === group.id && isTabUrlAllowed(t.url));
     for (const tab of groupTabs) {
       lines.push(`- [${escMd(tab.title || tab.url || '')}](${tab.url})`);
@@ -691,7 +693,7 @@ export async function exportGroupsAsMarkdown(): Promise<string> {
 
   const ungroupedTabs = tabs.filter(t => !isGroupedTab(t) && isTabUrlAllowed(t.url));
   if (ungroupedTabs.length) {
-    lines.push('## Ungrouped');
+    lines.push(`## ${tr('未分组')}`);
     for (const tab of ungroupedTabs) {
       lines.push(`- [${escMd(tab.title || tab.url || '')}](${tab.url})`);
     }
@@ -791,7 +793,7 @@ export async function checkGroupDrift(): Promise<{ drifted: boolean; driftedGrou
     const coherence = (maxCount / tabs.length) * 100;
 
     if (coherence < settings.groupDriftThreshold) {
-      driftedGroups.push(group.title || `分组 ${group.id}`);
+      driftedGroups.push(group.title || tr("分组 {0}", group.id));
     }
   }
 
@@ -807,7 +809,7 @@ export async function getMergeSplitSuggestions(): Promise<MergeSplitResult> {
   const groupTabCounts: Map<string, number> = new Map();
 
   for (const group of groups) {
-    const name = group.title || `分组 ${group.id}`;
+    const name = group.title || tr("分组 {0}", group.id);
     const tabs = await chrome.tabs.query({ groupId: group.id });
     const domains = new Set<string>();
     for (const tab of tabs) {
@@ -905,7 +907,14 @@ async function checkAllWindows(scheduled = false): Promise<void> {
   await Promise.all(jobs);
 }
 
-chrome.runtime.onMessage.addListener((msg: MessageType, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((msg: MessageType, sender, sendResponse) => {
+  void getSettings().then(() => handleMessage(msg, sender, sendResponse)).catch(error => {
+    sendResponse({ status: 'error', error: error instanceof Error ? error.message : tr('操作失败，请重试') });
+  });
+  return true;
+});
+
+function handleMessage(msg: MessageType, _sender: chrome.runtime.MessageSender, sendResponse: (response: unknown) => void) {
   if (['fetch-models', 'cleanup-preview', 'cleanup-close', 'cleanup-dismiss', 'cleanup-reset', 'cleanup-summary', 'archive-list', 'archive-restore', 'archive-delete', 'organization-report', 'manual-group-tab'].includes(msg.type)) {
     (async () => {
       const windowId = _sender.tab?.windowId ?? await getCurrentWindowId();
@@ -922,12 +931,12 @@ chrome.runtime.onMessage.addListener((msg: MessageType, _sender, sendResponse) =
         case 'organization-report': return { report: await getReport(windowId) };
         case 'manual-group-tab': {
           const tab = await chrome.tabs.get(msg.tabId);
-          if (tab.windowId !== windowId || !/^https?:\/\//.test(tab.url || '')) throw new Error('标签已变化，请重新整理。');
+          if (tab.windowId !== windowId || !/^https?:\/\//.test(tab.url || '')) throw new Error(tr("标签已变化，请重新整理。"));
           const name = msg.groupName.trim().slice(0, 80);
-          if (!name) throw new Error('请输入分组名称');
+          if (!name) throw new Error(tr("请输入分组名称"));
           const settings = await getSettings();
           const groups = await chrome.tabGroups.query({ windowId });
-          if (settings.pinnedGroups.includes(name) || groups.some(g => g.id === tab.groupId && settings.pinnedGroups.includes(g.title || ''))) throw new Error('该分组已锁定，请先在设置中解除锁定。');
+          if (settings.pinnedGroups.includes(name) || groups.some(g => g.id === tab.groupId && settings.pinnedGroups.includes(g.title || ''))) throw new Error(tr("该分组已锁定，请先在设置中解除锁定。"));
           const existing = groups.find(g => g.title === name);
           const id = await chrome.tabs.group({ tabIds: [msg.tabId], ...(existing ? { groupId: existing.id } : { createProperties: { windowId } }) });
           if (!existing) await chrome.tabGroups.update(id, { title: name, color: 'grey' });
@@ -937,7 +946,7 @@ chrome.runtime.onMessage.addListener((msg: MessageType, _sender, sendResponse) =
           return { report };
         }
       }
-    })().then(result => sendResponse({ status: 'done', ...result })).catch(e => sendResponse({ status: 'error', error: e instanceof Error ? e.message : '操作失败，请重试' }));
+    })().then(result => sendResponse({ status: 'done', ...result })).catch(e => sendResponse({ status: 'error', error: e instanceof Error ? e.message : tr("操作失败，请重试") }));
     return true;
   }
 
@@ -955,7 +964,7 @@ chrome.runtime.onMessage.addListener((msg: MessageType, _sender, sendResponse) =
     (async () => {
       const windowId = _sender.tab?.windowId ?? await getCurrentWindowId();
       const saved = await getSuggestions(windowId);
-      if (!saved?.length) throw new Error('分组建议来自其他窗口或已过期，请在当前窗口重新整理。');
+      if (!saved?.length) throw new Error(tr("分组建议来自其他窗口或已过期，请在当前窗口重新整理。"));
       return applyGroups(msg.suggestions, windowId);
     })().then(report => sendResponse({ type: 'status', status: 'applied', report })).catch(e => sendResponse({ type: 'status', status: 'error', error: e.message }));
     return true;
@@ -1136,7 +1145,7 @@ chrome.runtime.onMessage.addListener((msg: MessageType, _sender, sendResponse) =
             tabs.filter(t => t.url).map(t => hostnameFromUrl(t.url!)).filter(Boolean)
           )];
           groupStats.push({
-            name: group.title || `分组 ${group.id}`,
+            name: group.title || tr("分组 {0}", group.id),
             color: group.color,
             tabCount: tabs.length,
             domains,
@@ -1144,7 +1153,7 @@ chrome.runtime.onMessage.addListener((msg: MessageType, _sender, sendResponse) =
         }
         sendResponse({ type: 'status', status: 'done', groupStats });
       } catch (e) {
-        sendResponse({ type: 'status', status: 'error', error: e instanceof Error ? e.message : '失败' });
+        sendResponse({ type: 'status', status: 'error', error: e instanceof Error ? e.message : tr("失败") });
       }
     })();
     return true;
@@ -1183,35 +1192,36 @@ chrome.runtime.onMessage.addListener((msg: MessageType, _sender, sendResponse) =
   if (msg.type === 'list-workspaces') {
     getWorkspaces()
       .then(ws => sendResponse({ type: 'status', status: 'done', workspaceNames: Object.keys(ws) }))
-      .catch(e => sendResponse({ type: 'status', status: 'error', error: e instanceof Error ? e.message : '失败' }));
+      .catch(e => sendResponse({ type: 'status', status: 'error', error: e instanceof Error ? e.message : tr("失败") }));
     return true;
   }
 
   if (msg.type === 'save-workspace') {
     saveCurrentWorkspace(msg.name)
       .then(() => sendResponse({ type: 'status', status: 'done' }))
-      .catch(e => sendResponse({ type: 'status', status: 'error', error: e instanceof Error ? e.message : '失败' }));
+      .catch(e => sendResponse({ type: 'status', status: 'error', error: e instanceof Error ? e.message : tr("失败") }));
     return true;
   }
 
   if (msg.type === 'restore-workspace') {
     restoreWorkspaceByName(msg.name)
       .then(() => sendResponse({ type: 'status', status: 'done' }))
-      .catch(e => sendResponse({ type: 'status', status: 'error', error: e instanceof Error ? e.message : '失败' }));
+      .catch(e => sendResponse({ type: 'status', status: 'error', error: e instanceof Error ? e.message : tr("失败") }));
     return true;
   }
 
   if (msg.type === 'delete-workspace') {
     removeWorkspace(msg.name)
       .then(() => sendResponse({ type: 'status', status: 'done' }))
-      .catch(e => sendResponse({ type: 'status', status: 'error', error: e instanceof Error ? e.message : '失败' }));
+      .catch(e => sendResponse({ type: 'status', status: 'error', error: e instanceof Error ? e.message : tr("失败") }));
     return true;
   }
-});
+}
 
 let commandInFlight = false;
 let commandInFlightTimer: ReturnType<typeof setTimeout> | null = null;
-chrome.commands?.onCommand?.addListener((command: string) => {
+chrome.commands?.onCommand?.addListener(async (command: string) => {
+  await getSettings();
   if (commandInFlight) return;
   commandInFlight = true;
   // Safety timeout: reset flag after 60s in case command hangs
@@ -1227,7 +1237,8 @@ chrome.runtime.onInstalled.addListener(() => {
   return rebuildContextMenus();
 });
 
-chrome.contextMenus?.onClicked?.addListener((info, tab) => {
+chrome.contextMenus?.onClicked?.addListener(async (info, tab) => {
+  await getSettings();
   if (info.menuItemId === 'gtabs-organize') void organize().catch(() => {});
   if (info.menuItemId === 'gtabs-organize-ungrouped') void organize(true).catch(() => {});
   if (info.menuItemId === 'gtabs-undo') void undoLastGrouping().catch(() => {});
@@ -1239,7 +1250,7 @@ chrome.contextMenus?.onClicked?.addListener((info, tab) => {
     (async () => {
       const newGroupId = await groupTabsSafe([tabId]);
       if (newGroupId === null) return;
-      await chrome.tabGroups.update(newGroupId, { title: '新建分组', collapsed: false });
+      await chrome.tabGroups.update(newGroupId, { title: tr("新建分组"), collapsed: false });
       await rebuildContextMenus();
     })();
   } else if (menuId.startsWith(`${CTX_ADD_TO_GROUP_ID}-`) && tab?.id !== undefined) {
@@ -1267,6 +1278,7 @@ chrome.windows.onRemoved?.addListener(windowId => {
 });
 
 chrome.runtime.onStartup?.addListener(() => {
+  void rebuildContextMenus();
   chrome.alarms.create(ALARM_NAME, { periodInMinutes: 2 });
   void setupReorgAlarm().catch(() => {});
   void setupCleanupAlarm().then(refreshCleanupReminder).catch(() => {});
@@ -1350,6 +1362,10 @@ chrome.tabs.onActivated?.addListener((activeInfo: { tabId: number }) => {
 
 chrome.storage?.onChanged?.addListener((changes, areaName) => {
   if (areaName === 'local' && changes.settings) {
+    const next = changes.settings.newValue as { language?: unknown } | undefined;
+    const previous = changes.settings.oldValue as { language?: unknown } | undefined;
+    setLanguage(next?.language);
+    if (next?.language !== previous?.language) void rebuildContextMenus();
     setupReorgAlarm();
     void setupCleanupAlarm().then(refreshCleanupReminder).catch(() => {});
   }

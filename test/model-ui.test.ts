@@ -111,3 +111,16 @@ it('ignores a successful connection response for a configuration edited while wa
   reply?.({ status: 'done' }); await flush();
   expect(document.getElementById('test-result')?.textContent).not.toContain('连接成功');
 });
+it('renders English model settings and saves a language change without losing credentials', async () => {
+  await saveSettings({ ...(await getSettings()), language: 'en' });
+  await import('../src/options'); await flush();
+  expect(document.documentElement.lang).toBe('en');
+  expect(document.getElementById('test-btn')?.textContent).toBe('Test connection');
+  expect(document.querySelector('.provider-card.selected .name')?.textContent).toBe('OpenAI-compatible');
+  expect(document.getElementById('models-status')?.textContent).toContain('Loaded 2 models');
+  const language = document.getElementById('language') as HTMLSelectElement;
+  language.value = 'zh-CN'; language.dispatchEvent(new Event('change')); await flush();
+  expect(await getSettings()).toMatchObject({ language: 'zh-CN', model: 'custom-current', apiKey: 'fixture-token', baseUrl: 'http://127.0.0.1:15721/tencent/v1' });
+  expect(document.getElementById('test-btn')?.textContent).toBe('测试连接');
+  expect(chrome.permissions.request).not.toHaveBeenCalled();
+});

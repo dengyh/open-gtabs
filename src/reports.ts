@@ -1,3 +1,4 @@
+import { tr } from './i18n';
 import type { Settings } from './types';
 import { isAIEligible, isPrivateHostname } from './privacy';
 export type OrganizationReason = 'unsupported' | 'private' | 'excluded' | 'protected' | 'grouped' | 'insufficient' | 'unmatched' | 'suggested' | 'applied' | 'not-selected' | 'changed' | 'failed';
@@ -23,7 +24,7 @@ export function initialReport(tabs: chrome.tabs.Tab[], groups: chrome.tabGroups.
       else if (settings.excludePrivateHosts && isPrivateHostname(url.hostname)) reason = 'private';
       else if (!isAIEligible(t.url!, settings)) reason = 'excluded';
     } catch { reason = 'unsupported'; }
-    return { id: t.id!, title: t.title || '未命名标签', reason };
+    return { id: t.id!, title: t.title || tr("未命名标签"), reason };
   }) };
 }
 export async function saveReport(report: OrganizationReport): Promise<void> {

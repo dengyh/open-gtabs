@@ -1,0 +1,11 @@
+{
+  "extensionDescription": {
+    "message": "Organize tabs with OpenAI-compatible services, Ollama, or Chrome AI. Multilingual UI, previews, undo, and privacy controls."
+  },
+  "organizeCommand": {
+    "message": "Organize tab groups"
+  },
+  "undoCommand": {
+    "message": "Undo last tab grouping"
+  }
+}

@@ -58,6 +58,7 @@ export interface LLMConfig {
 }
 
 export interface Settings extends LLMConfig {
+  language: import('./i18n').Language;
   provider: string;
   excludePrivateHosts: boolean;
   excludedDomains: string[];
@@ -232,6 +233,7 @@ export interface ExportData {
 // --- Defaults ---
 
 export const DEFAULT_SETTINGS: Settings = {
+  language: 'auto',
   provider: 'chrome-ai',
   baseUrl: '',
   apiKey: '',

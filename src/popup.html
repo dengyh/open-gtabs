@@ -184,29 +184,29 @@
   <!-- Header -->
   <div class="header">
     <div class="logo"><span class="logo-icon">🗂️</span> gTabs</div>
-    <button class="icon-btn" id="open-settings" title="设置">⚙️</button>
+    <button class="icon-btn" id="open-settings" title="设置" data-i18n-title="设置" >⚙️</button>
   </div>
 
   <!-- Primary CTA -->
   <div class="primary-row">
-    <button class="btn-primary" id="organize" aria-label="整理当前窗口标签">✨ 整理标签</button>
-    <button class="btn-ghost" id="organize-ungrouped" aria-label="只整理未分组标签">仅未分组</button>
+    <button class="btn-primary" id="organize" aria-label="整理当前窗口标签" data-i18n="✨ 整理标签" data-i18n-aria-label="整理当前窗口标签" >✨ 整理标签</button>
+    <button class="btn-ghost" id="organize-ungrouped" aria-label="只整理未分组标签" data-i18n="仅未分组" data-i18n-aria-label="只整理未分组标签" >仅未分组</button>
   </div>
 
   <!-- Undo -->
   <div class="undo-row">
-    <button class="btn-ghost" id="undo" aria-label="撤销上次分组">↩️ 撤销</button>
+    <button class="btn-ghost" id="undo" aria-label="撤销上次分组" data-i18n="↩️ 撤销" data-i18n-aria-label="撤销上次分组" >↩️ 撤销</button>
   </div>
 
   <hr />
 
   <button class="btn-ghost" id="cleanup-notice" hidden></button>
   <div id="status" role="status"></div>
-  <details id="organization-report" hidden><summary id="report-summary"></summary><div id="report-items"></div><button class="btn-ghost" id="report-rules">设置本地分组规则</button></details>
-  <input type="text" id="search" placeholder="🔎 搜索标签…" aria-label="搜索标签" />
+  <details id="organization-report" hidden><summary id="report-summary"></summary><div id="report-items"></div><button class="btn-ghost" id="report-rules" data-i18n="设置本地分组规则">设置本地分组规则</button></details>
+  <input type="text" id="search" placeholder="🔎 搜索标签…" aria-label="搜索标签"  data-i18n-aria-label="搜索标签"  data-i18n-placeholder="🔎 搜索标签…" />
   <div id="tab-search-results"></div>
   <div id="suggestions"></div>
-  <button id="apply-all" hidden aria-label="应用建议的分组">应用分组</button>
+  <button id="apply-all" hidden aria-label="应用建议的分组" data-i18n="应用分组" data-i18n-aria-label="应用建议的分组" >应用分组</button>
 
   <div class="footer">
     <span id="stats-text"></span>
