@@ -45,6 +45,8 @@ Model requests include eligible tab titles, redacted URLs (domain and path), tab
 
 API keys and settings stay in local extension storage. Keys are not synced or exported, but are not encrypted by the application. Remote services require HTTPS and explicit host permission; HTTP is limited to localhost and 127.0.0.1. Changing the base URL clears the old key. No webpage content, cookies, or browsing-history database is read.
 
+Settings exports (JSON) exclude the API key and cleanup archives, but include the service address, full workspace URLs, titles, groups, rules, and learning records. Rule exports (CSV) contain domains and group names. Markdown copies tab titles, group names, and full URLs to the clipboard. Exports do not apply the exclusions or URL redaction used for model requests: full URLs may contain login parameters or access tokens. Keep backups private and review and redact a copy before sharing or pasting into public repositories, issue reports, or chats. Git ignores common `gtabs-export*.json` and `gtabs-domain-rules*.csv` filenames; renamed files and other formats still need review.
+
 See [model setup](MODEL-SETUP.md), [privacy](PRIVACY.md), [security](SECURITY.md), [development and adding languages](CONTRIBUTING.md), and [changes](CHANGELOG.md). These detailed documents are currently in Chinese.
 
 MIT licensed. Retain [LICENSE](LICENSE) and [NOTICE](NOTICE) when modifying or redistributing. CI checks types, tests, and builds, and uploads the unpacked extension. Publishing source does not publish to the Chrome Web Store.

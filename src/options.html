@@ -360,9 +360,10 @@
       <div id="domain-rules"></div>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
         <button class="btn-ghost" style="flex:1" id="add-rule" data-i18n="+ 添加规则">+ 添加规则</button>
-        <button class="btn-ghost" id="export-rules-csv" data-i18n="⬇ 导出 CSV">⬇ 导出 CSV</button>
+        <button class="btn-ghost" id="export-rules-csv" aria-describedby="export-rules-privacy" data-i18n="⬇ 导出 CSV">⬇ 导出 CSV</button>
         <button class="btn-ghost" id="import-rules-csv" data-i18n="⬆ 导入 CSV">⬆ 导入 CSV</button>
       </div>
+      <p class="slider-desc" id="export-rules-privacy" data-i18n="CSV 包含域名和分组名称，可能涉及内部站点。分享前请检查并脱敏。">CSV 包含域名和分组名称，可能涉及内部站点。分享前请检查并脱敏。</p>
       <input type="file" id="import-rules-file" accept=".csv" hidden />
     </div>
   </div>
@@ -376,8 +377,9 @@
         <button class="btn-ghost" id="tool-focus" data-i18n="🎯 专注当前分组">🎯 专注当前分组</button>
         <button class="btn-ghost" id="tool-sort" data-i18n="🔤 分组排序">🔤 分组排序</button>
         <button class="btn-ghost danger" id="tool-clear" data-i18n="🧹 取消全部分组">🧹 取消全部分组</button>
-        <button class="btn-ghost" id="tool-export-md" data-i18n="📋 导出 Markdown">📋 导出 Markdown</button>
+        <button class="btn-ghost" id="tool-export-md" aria-describedby="export-markdown-privacy" data-i18n="📋 导出 Markdown">📋 导出 Markdown</button>
       </div>
+      <p class="slider-desc" id="export-markdown-privacy" data-i18n="Markdown 会复制标签标题、分组名和完整网址（含查询参数）到剪贴板。分享前请检查并脱敏。">Markdown 会复制标签标题、分组名和完整网址（含查询参数）到剪贴板。分享前请检查并脱敏。</p>
       <div id="tool-status" style="font-size:11px;color:#7c6af5;min-height:16px;font-weight:600;font-family:var(--font-display);margin-bottom:8px"></div>
       <div id="tool-results"></div>
 
@@ -412,10 +414,11 @@
         <input type="range" id="spendingCapUSD" min="0" max="100" value="0" step="1" />
       </div>
       <div class="data-actions">
-        <button class="btn-ghost btn-sm" id="export-data" data-i18n="导出设置">导出设置</button>
+        <button class="btn-ghost btn-sm" id="export-data" aria-describedby="export-data-privacy" data-i18n="导出设置">导出设置</button>
         <button class="btn-ghost btn-sm" id="import-data" data-i18n="导入设置">导入设置</button>
         <input type="file" id="import-file" accept=".json" hidden />
       </div>
+      <p class="slider-desc" id="export-data-privacy" data-i18n="导出不含 API Key，但包含接口地址、工作区完整网址、分组、规则和学习记录；不含清理归档。请勿直接公开，分享前先检查并脱敏。">导出不含 API Key，但包含接口地址、工作区完整网址、分组、规则和学习记录；不含清理归档。请勿直接公开，分享前先检查并脱敏。</p>
       <div class="stats-chip" id="stats-line"></div>
       <div style="overflow-x:auto">
         <table class="cost-table" id="cost-table" hidden>

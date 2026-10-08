@@ -3,6 +3,9 @@ dist/
 coverage/
 *.js.map
 *.zip
+# Local exports can contain private URLs, group names, rules, and service addresses.
+gtabs-export*.json
+gtabs-domain-rules*.csv
 *.crdownload
 videoplayback*.mp4
 unnamed.png
