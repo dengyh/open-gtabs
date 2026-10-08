@@ -1,4 +1,5 @@
 import { initCleanupUI } from './cleanup-ui';
+import { endpointInfo, sameEndpoint } from './endpoints';
 import type { MessageType } from './types';
 import type { Settings, DomainRule, Color, ProviderPreset } from './types';
 import { DEFAULT_SETTINGS, PROVIDERS, COLORS, COLOR_LABELS } from './types';
@@ -77,6 +78,10 @@ let currentProvider: ProviderPreset | null = null;
 let modelRequest = 0;
 const modelStatus = $('models-status');
 const refreshModelsButton = $<HTMLButtonElement>('refresh-models');
+const authorizeEndpointButton = $<HTMLButtonElement>('authorize-endpoint');
+const endpointStatus = $('endpoint-status');
+let endpointCheck = 0;
+let keyEndpoint = '';
 const cleanupReminderInput = $<HTMLInputElement>('cleanup-reminder');
 
 function esc(s: string): string {
@@ -132,20 +137,24 @@ function hideChromeAISetup() {
 }
 
 function selectProvider(p: ProviderPreset) {
+  if (currentProvider?.id === p.id) return;
   if (currentProvider?.id !== p.id && (currentProvider?.customEndpoint || p.customEndpoint)) {
     inApiKey.value = '';
   }
   currentProvider = p;
+  endpointCheck++;
 
   // Update UI
   renderProviderCards(p.id);
   customEndpointRow.classList.toggle('hidden', !p.customEndpoint);
   modelSelectRow.classList.remove('hidden');
-  refreshModelsButton.hidden = p.id !== 'tt-switch';
+  refreshModelsButton.hidden = p.id !== 'openai-compatible';
   refreshModelsButton.disabled = false;
   modelStatus.textContent = '';
   modelRequest++;
   inBaseUrl.value = p.baseUrl;
+  keyEndpoint = p.baseUrl;
+  void updateEndpointStatus();
   inCustomModel.value = p.models[0] || '';
 
   // Show/hide key row + signup link
@@ -199,17 +208,18 @@ async function fetchOllamaModels() {
   }
 }
 
-async function refreshTTModels(persist = true) {
-  if (currentProvider?.id !== 'tt-switch') return;
+async function refreshOpenAIModels(persist = true) {
+  if (currentProvider?.id !== 'openai-compatible') return;
   const request = ++modelRequest;
   const endpoint = inBaseUrl.value;
   const key = inApiKey.value;
   if (persist) await save();
+  if (request !== modelRequest || endpoint !== inBaseUrl.value || key !== inApiKey.value) return;
   refreshModelsButton.disabled = true;
-  modelStatus.textContent = '正在读取 TT Switch 模型列表…';
+  modelStatus.textContent = '正在读取模型列表…';
   try {
-    const res = await sendMsg({ type: 'fetch-tt-models' });
-    if (request !== modelRequest || currentProvider?.id !== 'tt-switch' || endpoint !== inBaseUrl.value || key !== inApiKey.value) return;
+    const res = await sendMsg({ type: 'fetch-models' });
+    if (request !== modelRequest || currentProvider?.id !== 'openai-compatible' || endpoint !== inBaseUrl.value || key !== inApiKey.value) return;
     if (!res?.models?.length) throw new Error(res?.error || '未获得模型列表，当前模型保持不变，可手动填写。');
     const selected = inCustomModel.value.trim();
     populateModels([...new Set([selected, ...res.models].filter(Boolean))]);
@@ -219,36 +229,79 @@ async function refreshTTModels(persist = true) {
     if (request === modelRequest) modelStatus.textContent = e instanceof Error ? e.message : '模型列表读取失败，当前模型保持不变。';
   } finally { if (request === modelRequest) refreshModelsButton.disabled = false; }
 }
-refreshModelsButton.addEventListener('click', () => { void refreshTTModels(); });
+refreshModelsButton.addEventListener('click', () => { void refreshOpenAIModels(); });
 modelSelect.addEventListener('change', () => {
-  if (currentProvider?.id === 'tt-switch') inCustomModel.value = modelSelect.value;
+  if (currentProvider?.id === 'openai-compatible') inCustomModel.value = modelSelect.value;
 });
 inCustomModel.addEventListener('change', () => {
-  if (currentProvider?.id !== 'tt-switch') return;
+  if (currentProvider?.id !== 'openai-compatible') return;
   const value = inCustomModel.value.trim();
   if (value && !Array.from(modelSelect.options).some(o => o.value === value)) modelSelect.add(new Option(value, value));
   modelSelect.value = value;
 });
 for (const input of [inBaseUrl, inApiKey]) input.addEventListener('input', () => {
   modelRequest++; refreshModelsButton.disabled = false;
-  if (currentProvider?.id === 'tt-switch') {
+  if (currentProvider?.id === 'openai-compatible') {
     populateModels(inCustomModel.value.trim() ? [inCustomModel.value.trim()] : []);
     modelStatus.textContent = '连接配置已变化，保存后可刷新模型列表。';
   }
 });
 
+// Remote access is requested only by this explicit user gesture, never during autosave.
+async function updateEndpointStatus() {
+  const request = ++endpointCheck;
+  authorizeEndpointButton.hidden = true;
+  endpointStatus.textContent = '';
+  if (currentProvider?.id !== 'openai-compatible' || !inBaseUrl.value.trim()) return;
+  try {
+    const endpoint = endpointInfo(inBaseUrl.value);
+    const granted = !endpoint.permission || await chrome.permissions.contains({ origins: [endpoint.permission] });
+    if (request !== endpointCheck) return;
+    authorizeEndpointButton.hidden = granted;
+    authorizeEndpointButton.disabled = false;
+    endpointStatus.textContent = !endpoint.permission ? '本机接口：无需额外授权。'
+      : granted ? '此接口所在网站已授权。' : '连接此接口前，请授权访问它所在的网站。';
+  } catch (e) { if (request === endpointCheck) endpointStatus.textContent = e instanceof Error ? e.message : '接口地址无效'; }
+}
+authorizeEndpointButton.addEventListener('click', async () => {
+  if (currentProvider?.id !== 'openai-compatible') return;
+  const address = inBaseUrl.value;
+  try {
+    const endpoint = endpointInfo(address);
+    if (!endpoint.permission) return;
+    authorizeEndpointButton.disabled = true;
+    const granted = await chrome.permissions.request({ origins: [endpoint.permission] });
+    if (address !== inBaseUrl.value || currentProvider?.id !== 'openai-compatible') return;
+    await updateEndpointStatus();
+    if (!granted) endpointStatus.textContent = '未授权，尚未连接此服务；可继续使用本机接口。';
+  } catch (e) { endpointStatus.textContent = e instanceof Error ? e.message : '授权失败，请重试'; }
+  finally { authorizeEndpointButton.disabled = false; }
+});
+function onEndpointEdited() {
+  if (!sameEndpoint(keyEndpoint, inBaseUrl.value)) {
+    inApiKey.value = '';
+    keyEndpoint = inBaseUrl.value;
+  }
+  void updateEndpointStatus();
+}
+inBaseUrl.addEventListener('input', onEndpointEdited);
+inBaseUrl.addEventListener('change', onEndpointEdited);
+inApiKey.addEventListener('input', () => { keyEndpoint = inBaseUrl.value; });
+
 // --- Save ---
 
+let saveQueue: Promise<void> = Promise.resolve();
 async function save() {
+  if (saveDebounceTimer !== undefined) {
+    window.clearTimeout(saveDebounceTimer);
+    saveDebounceTimer = undefined;
+  }
   testResult.textContent = '';
   const p = currentProvider;
   if (!p) return;
 
   const model = p.customEndpoint ? inCustomModel.value.trim() : modelSelect.value;
   const baseUrl = p.customEndpoint ? inBaseUrl.value.trim().replace(/\/+$/, '') : p.baseUrl;
-
-  // Preserve pinnedGroups from current settings (managed separately)
-  const current = await getSettings();
 
   const settings: Settings = {
     provider: p.id,
@@ -273,18 +326,22 @@ async function save() {
     groupDriftThreshold: Number(inGroupDriftThreshold.value) || DEFAULT_SETTINGS.groupDriftThreshold,
     reorgSchedule: inReorgSchedule.value as Settings['reorgSchedule'],
     reorgTime: Number(inReorgTime.value),
-    pinnedGroups: current.pinnedGroups || [],
+    pinnedGroups: [],
     smartUngroup: inSmartUngroup.checked,
-    spendingCapUSD: current.spendingCapUSD ?? DEFAULT_SETTINGS.spendingCapUSD,
+    spendingCapUSD: Number(inSpendingCapUSD.value) || 0,
   };
-  settings.spendingCapUSD = Number(inSpendingCapUSD.value) ?? 0;
-  await saveSettings(settings);
+  // Capture the full form before awaiting storage, then serialize saves.
+  saveQueue = saveQueue.catch(() => {}).then(async () => {
+    settings.pinnedGroups = (await getSettings()).pinnedGroups || [];
+    await saveSettings(settings);
+  });
+  await saveQueue;
 }
 
 let saveDebounceTimer: number | undefined;
 function scheduleSave(delayMs = 180) {
   if (saveDebounceTimer !== undefined) window.clearTimeout(saveDebounceTimer);
-  saveDebounceTimer = window.setTimeout(() => { void save(); }, delayMs);
+  saveDebounceTimer = window.setTimeout(() => { saveDebounceTimer = undefined; void save(); }, delayMs);
 }
 
 // --- Load ---
@@ -302,11 +359,13 @@ async function load() {
   renderProviderCards(p.id);
   customEndpointRow.classList.toggle('hidden', !p.customEndpoint);
   modelSelectRow.classList.remove('hidden');
-  refreshModelsButton.hidden = p.id !== 'tt-switch';
+  refreshModelsButton.hidden = p.id !== 'openai-compatible';
   refreshModelsButton.disabled = false;
   modelStatus.textContent = '';
   modelRequest++;
   inBaseUrl.value = s.baseUrl || p.baseUrl;
+  keyEndpoint = inBaseUrl.value;
+  void updateEndpointStatus();
   inCustomModel.value = s.model;
   if (p.isBuiltIn && !chromeAIAvailable) showChromeAISetup();
   keyRow.classList.toggle('hidden', !p.needsKey);
@@ -369,32 +428,31 @@ async function load() {
 
   // Stats & costs
   await refreshData();
-  if (p.id === 'tt-switch') {
+  if (p.id === 'openai-compatible') {
     populateModels([...new Set([s.model, ...p.models].filter(Boolean))]);
     modelSelect.value = s.model;
-    if (s.apiKey) void refreshTTModels(false);
+    if (s.baseUrl) void refreshOpenAIModels(false);
   }
 }
 
 // --- Test Connection ---
 
+function connectionState(): string {
+  return JSON.stringify([currentProvider?.id, inBaseUrl.value, inApiKey.value, inCustomModel.value, modelSelect.value]);
+}
 testBtn.addEventListener('click', async () => {
+  const state = connectionState();
   await save();
+  if (state !== connectionState()) return;
   testBtn.disabled = true;
   testResult.textContent = '正在测试…';
   testResult.className = 'test-result';
-
-  const res = await sendMsg({ type: 'test-connection' });
-  testBtn.disabled = false;
-
-  if (res?.status === 'done') {
-    testResult.textContent = '连接成功！';
-    testResult.className = 'test-result ok';
-  } else {
-    testResult.textContent = res?.error || '失败';
-    testResult.className = 'test-result fail';
-  }
-
+  try {
+    const res = await sendMsg({ type: 'test-connection' });
+    if (state !== connectionState()) return;
+    testResult.textContent = res?.status === 'done' ? '连接成功！' : res?.error || '失败';
+    testResult.className = res?.status === 'done' ? 'test-result ok' : 'test-result fail';
+  } finally { testBtn.disabled = false; }
 });
 
 // --- Domain Rules ---
@@ -764,8 +822,8 @@ document.getElementById('chrome-ai-check-btn')?.addEventListener('click', async 
 
 document.getElementById('chrome-ai-skip-btn')?.addEventListener('click', () => {
   hideChromeAISetup();
-  const groq = PROVIDERS.find(p => p.id === 'tt-switch')!;
-  selectProvider(groq);
+  const compatible = PROVIDERS.find(p => p.id === 'openai-compatible')!;
+  selectProvider(compatible);
 });
 
 document.querySelectorAll<HTMLButtonElement>('.stale-preset').forEach(button => button.addEventListener('click', () => {

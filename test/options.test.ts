@@ -51,14 +51,16 @@ describe('Options Page', () => {
     (providerGrid!.children[1] as HTMLElement).click();
     expect((document.getElementById('key-row') as HTMLElement).classList.contains('hidden')).toBe(false);
 
-    expect(providerGrid!.querySelector('.provider-card.selected .name')?.textContent).toBe('TT Switch');
+    expect(providerGrid!.querySelector('.provider-card.selected .name')?.textContent).toBe('OpenAI 兼容接口');
     const baseUrl = document.getElementById('base-url') as HTMLInputElement;
     const customModel = document.getElementById('custom-model') as HTMLInputElement;
-    expect(baseUrl.value).toBe('http://127.0.0.1:15721/tencent/v1');
+    expect(baseUrl.value).toBe('');
+    baseUrl.value = 'http://localhost:8000/custom/v1';
+    baseUrl.dispatchEvent(new Event('input'));
     customModel.value = 'custom-model-id';
     customModel.dispatchEvent(new Event('change'));
     for (let i = 0; i < 5; i++) await new Promise(r => process.nextTick(r));
-    expect(saveSpy).toHaveBeenLastCalledWith(expect.objectContaining({ provider: 'tt-switch', baseUrl: baseUrl.value, model: 'custom-model-id' }));
+    expect(saveSpy).toHaveBeenLastCalledWith(expect.objectContaining({ provider: 'openai-compatible', baseUrl: baseUrl.value, model: 'custom-model-id' }));
 
     // Test range bindings and auto-save
     const maxGroups = document.getElementById('maxGroups') as HTMLInputElement;

@@ -31,7 +31,7 @@ describe('AI privacy boundary', () => {
 
   it('sends neither excluded tabs nor historical learning data to the model', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: '[{"name":"文档","color":"blue","tabIds":[1]}]' } }] })));
-    const settings = { ...DEFAULT_SETTINGS, provider: 'tt-switch', baseUrl: 'http://127.0.0.1:15721/tencent/v1', apiKey: 'test-only', model: 'test-model', excludedDomains: ['company.example'] };
+    const settings = { ...DEFAULT_SETTINGS, provider: 'openai-compatible', baseUrl: 'http://127.0.0.1:15721/tencent/v1', apiKey: 'test-only', model: 'test-model', excludedDomains: ['company.example'] };
     const result = await suggest([
       { id: 1, title: 'Public docs', url: 'https://docs.example.com/guide?token=URL_SECRET#PRIVATE_FRAGMENT' },
       { id: 2, title: 'CONFIDENTIAL_TITLE', url: 'https://wiki.company.example/private' },
@@ -71,7 +71,7 @@ describe('local-only settings migration', () => {
   });
 
   it('clears the existing token when imported settings change the recipient', async () => {
-    await saveSettings({ ...DEFAULT_SETTINGS, provider: 'tt-switch', baseUrl: 'http://127.0.0.1:15721/tencent/v1', apiKey: 'private-key' });
+    await saveSettings({ ...DEFAULT_SETTINGS, provider: 'openai-compatible', baseUrl: 'http://127.0.0.1:15721/tencent/v1', apiKey: 'private-key' });
     await importAll({ settings: { ...DEFAULT_SETTINGS, provider: 'ollama', baseUrl: 'http://localhost:11434/v1', apiKey: 'untrusted-import-key' }, affinity: {}, domainRules: [], workspaces: {} });
     expect((await getSettings()).apiKey).toBe('');
   });

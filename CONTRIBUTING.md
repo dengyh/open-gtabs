@@ -28,7 +28,8 @@ npm run package
 | `src/background.ts` | 标签事件、自动触发、分组应用、同名组复用、撤销和本地学习 |
 | `src/grouper.ts` | 规则预分配、中文标题匹配、模型提示、JSON 校验、遗漏标签处理 |
 | `src/privacy.ts` | AI 站点排除、内网主机判断、网址脱敏 |
-| `src/llm.ts` | 本机地址校验、请求超时、拒绝重定向、TT Switch / Ollama / Chrome AI |
+| `src/endpoints.ts` | 基础地址校验、远程站点授权检查、旧配置兼容 |
+| `src/llm.ts` | OpenAI 兼容协议、请求超时、拒绝重定向、Ollama / Chrome AI |
 | `src/cleanup.ts` / `src/cleanup-ui.ts` | 闲置预览、保护判断、归档持久化、关闭复核、恢复及界面 |
 | `src/reports.ts` | 按窗口保存整理结果及原因 |
 | `src/storage.ts` | 本地存储、旧版同步迁移、导入导出和 Token 隔离 |
@@ -42,10 +43,10 @@ npm run package
 
 ## 常见改动
 
-- **换 TT Switch 模型**：直接在设置页刷新模型列表并选择，也可填写模型 ID，无需改源码。只有改变协议 / 服务路由时才改 `llm.ts`。
+- **更换模型**：直接在设置页刷新模型列表并选择，也可填写模型 ID，无需改源码。只有改变协议 / 服务路由时才改 `llm.ts`。
 - **调整中文文案**：修改 `options.html`、`popup.html` 和对应 TypeScript 的可见文案，不要翻译消息类型、颜色协议值或模型 ID。
 - **调整分组策略**：修改 `grouper.ts`，保留合法标签 ID 校验、每标签只分配一次和安全过滤。模型输出不能变成可执行脚本。
-- **扩展服务商**：本版故意限制本机服务。新增外部服务必须同时评估 `manifest.json` 的主机权限 / CSP、`llm.ts` 校验、Token 归属和数据发送提示，不能仅放开地址输入框。
+- **扩展服务商**：使用通用 Base URL 即可接入实现 Chat Completions 的服务。远程访问必须经过 `endpoints.ts` 的 HTTPS 地址校验与可选主机权限检查；只在用户点击时请求单个主机授权。调整协议时同时检查 Token 归属、导入迁移及发送提示，禁止静默授权所有网站。
 - **新增隐私设置**：同时更新类型、默认值、存储输入校验、界面、导入迁移和测试。站点排除必须在模型请求之前生效。
 - **自动整理**：保持冷却和进行中保护；只对目标窗口操作。定时器属于 Chrome alarms，不保证休眠时准点执行。
 
@@ -55,7 +56,7 @@ npm run package
 
 ### 隔离界面夹具
 
-`test/fixtures/browser-ui.ts` 将真实设置界面和后台代码接到模拟 Chrome 标签。可用 esbuild 打包为页面脚本，并在仅绑定 127.0.0.1 的临时服务器中打开，用于检查清理和恢复交互；它不会操作真实浏览器标签。自动化检查仍使用 `npm test`，实际 Chrome API 和 TT Switch 连接需独立联调。
+`test/fixtures/browser-ui.ts` 将真实设置界面和后台代码接到模拟 Chrome 标签。可用 esbuild 打包为页面脚本，并在仅绑定 127.0.0.1 的临时服务器中打开，用于检查清理和恢复交互；它不会操作真实浏览器标签。自动化检查仍使用 `npm test`，实际 Chrome API 和模型接口连接需独立联调。
 
 ## 上游同步
 
@@ -66,7 +67,7 @@ git switch -c sync-upstream
 # 按需合并或挑选提交，并审查权限、网络目的地、存储与提示词差异。
 ```
 
-不要直接覆盖本版的隐私边界和网络限制。原上游云端预设及 Anthropic 直连测试已经移除，保留了本机 OpenAI 兼容协议及拦截外部地址的测试。
+不要直接覆盖本版的隐私边界和网络限制。原上游服务商预设及 Anthropic 直连已移除；本版支持通用 OpenAI Chat Completions 协议，保留非法地址、未授权远程请求和密钥迁移的回归测试。
 
 ## 发布
 

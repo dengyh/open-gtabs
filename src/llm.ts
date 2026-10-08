@@ -1,4 +1,5 @@
-import type { LLMConfig, MODEL_PRICING } from './types';
+import type { LLMConfig } from './types';
+import { ensureEndpointAccess } from './endpoints';
 
 export interface Message {
   role: 'system' | 'user' | 'assistant';
@@ -44,7 +45,7 @@ export function isChromeAIAvailable(): boolean {
 
 async function completeChromeAI(messages: Message[]): Promise<CompletionResult> {
   const LM = globalThis.LanguageModel;
-  if (!LM) throw new Error('Chrome 内置 AI 当前不可用，请改用 TT Switch 或检查浏览器模型设置。');
+  if (!LM) throw new Error('Chrome 内置 AI 当前不可用，请改用 OpenAI 兼容接口或检查浏览器模型设置。');
 
   const systemPrompt = messages.filter(m => m.role === 'system').map(m => m.content).join('\n');
   const userContent = messages.filter(m => m.role !== 'system').map(m => m.content).join('\n');
@@ -99,7 +100,7 @@ function validateLocalEndpoint(baseUrl: string, path: string): void {
   try { url = new URL(baseUrl); } catch { throw new Error('请输入有效的本机模型接口地址'); }
   if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(url.hostname)
     || normalizeBaseUrl(url.pathname) !== path || url.username || url.password || url.search || url.hash) {
-    throw new Error('仅允许本机 TT Switch /tencent/v1 或 Ollama /v1 接口，禁止外部地址及重定向');
+    throw new Error('Ollama 预设仅允许本机 /v1 地址；其他地址请使用 OpenAI 兼容接口');
   }
 }
 
@@ -112,13 +113,13 @@ export async function completeWithUsage(config: LLMConfig, messages: Message[]):
   if (!config.baseUrl && config.model === 'gemini-nano' && (!config.provider || config.provider === 'chrome-ai')) {
     return completeChromeAI(messages);
   }
-  if (config.provider === 'tt-switch') {
-    validateLocalEndpoint(config.baseUrl, '/tencent/v1');
-    if (!config.apiKey.trim() || !config.model.trim()) throw new Error('请填写 TT Switch API Token 和模型 ID');
+  if (config.provider === 'openai-compatible') {
+    config = { ...config, baseUrl: await ensureEndpointAccess(config.baseUrl) };
+    if (!config.model.trim()) throw new Error('请填写或选择模型 ID');
   } else if (!config.provider || config.provider === 'ollama') {
     validateLocalEndpoint(config.baseUrl, '/v1');
   } else {
-    throw new Error('此版本仅支持 TT Switch、Ollama 和 Chrome 内置 AI');
+    throw new Error('请选择 OpenAI 兼容接口、Ollama 或 Chrome 内置 AI');
   }
   return completeOpenAI(config, messages);
 }
@@ -132,11 +133,13 @@ export async function fetchOllamaModels(baseUrl: string): Promise<string[]> {
   return (data.models || []).map((m: any) => m.name || m.model).filter(Boolean) as string[];
 }
 
-export async function fetchTTSwitchModels(config: LLMConfig): Promise<string[]> {
-  validateLocalEndpoint(config.baseUrl, '/tencent/v1');
-  if (config.provider !== 'tt-switch' || !config.apiKey.trim()) throw new Error('请先填写 TT Switch API Token');
-  const res = await fetchWithTimeout(`${normalizeBaseUrl(config.baseUrl)}/models`, {
-    method: 'GET', redirect: 'error', headers: { Authorization: `Bearer ${config.apiKey.trim()}` },
+export async function fetchOpenAIModels(config: LLMConfig): Promise<string[]> {
+  if (config.provider !== 'openai-compatible') throw new Error('请先选择 OpenAI 兼容接口');
+  const baseUrl = await ensureEndpointAccess(config.baseUrl);
+  const headers: Record<string, string> = {};
+  if (config.apiKey.trim()) headers.Authorization = `Bearer ${config.apiKey.trim()}`;
+  const res = await fetchWithTimeout(`${baseUrl}/models`, {
+    method: 'GET', redirect: 'error', headers,
   }, 8000);
   if (!res.ok) throw new Error(`模型列表读取失败（HTTP ${res.status}），当前模型保持不变，可手动填写模型 ID。`);
   const data = await res.json();
@@ -144,7 +147,7 @@ export async function fetchTTSwitchModels(config: LLMConfig): Promise<string[]> 
   const models = [...new Set<string>(data.data.map((m: unknown) =>
     m && typeof m === 'object' && 'id' in m && typeof m.id === 'string' ? m.id.trim() : '',
   ).filter((id: string) => id && id.length <= 200 && !/[\x00-\x1f]/.test(id)))].sort();
-  if (!models.length) throw new Error('TT Switch 未返回模型，当前模型保持不变。');
+  if (!models.length) throw new Error('接口未返回模型，当前模型保持不变。');
   return models;
 }
 

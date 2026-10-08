@@ -414,7 +414,7 @@ describe('getTabs – edge cases', () => {
 describe('organize – edge cases', () => {
   beforeEach(async () => {
     const { saveSettings } = await import('../src/storage');
-    await saveSettings({ ...DEFAULT_SETTINGS, provider: 'tt-switch', apiKey: 'test', baseUrl: 'http://127.0.0.1:15721/tencent/v1', model: 'test' });
+    await saveSettings({ ...DEFAULT_SETTINGS, provider: 'openai-compatible', apiKey: 'test', baseUrl: 'http://127.0.0.1:15721/tencent/v1', model: 'test' });
   });
 
   it('returns error for exactly 1 tab', async () => {

@@ -18,6 +18,7 @@ import type {
   SnoozedTab,
 } from './types';
 import { DEFAULT_SETTINGS, DEFAULT_STATS, DEFAULT_COSTS } from './types';
+import { isLegacyLocalEndpoint, sameEndpoint } from './endpoints';
 
 const K = {
   settings: 'settings',
@@ -67,9 +68,9 @@ function sanitizeSettings(input: Partial<Settings>): Settings {
     : DEFAULT_SETTINGS.reorgSchedule;
   return {
     ...s,
-    provider: typeof s.provider === 'string' ? s.provider : DEFAULT_SETTINGS.provider,
+    provider: s.provider === 'tt-switch' ? 'openai-compatible' : typeof s.provider === 'string' ? s.provider : DEFAULT_SETTINGS.provider,
     baseUrl: typeof s.baseUrl === 'string' ? s.baseUrl : DEFAULT_SETTINGS.baseUrl,
-    apiKey: typeof s.apiKey === 'string' ? s.apiKey.trim() : DEFAULT_SETTINGS.apiKey,
+    apiKey: s.provider === 'tt-switch' && !isLegacyLocalEndpoint(s.baseUrl) ? '' : typeof s.apiKey === 'string' ? s.apiKey.trim() : DEFAULT_SETTINGS.apiKey,
     model: typeof s.model === 'string' ? s.model : DEFAULT_SETTINGS.model,
     excludePrivateHosts: s.excludePrivateHosts !== false,
     excludedDomains: Array.isArray(s.excludedDomains) ? [...new Set(s.excludedDomains.filter((d): d is string => typeof d === 'string').map(d => d.trim().toLowerCase()).filter(Boolean))].slice(0, 500) : [],
@@ -104,8 +105,8 @@ export async function getSettings(): Promise<Settings> {
     return sanitizeSettings({ ...(local[K.settings] as Settings), apiKey: String(local[K_API_KEY_LOCAL] ?? '') });
   }
   const legacy = await chrome.storage.sync.get(K.settings);
-  const settings = sanitizeSettings(legacy[K.settings] as Partial<Settings> ?? {});
-  settings.apiKey = String(local[K_API_KEY_LOCAL] ?? settings.apiKey).trim();
+  const imported = legacy[K.settings] as Partial<Settings> | undefined;
+  const settings = sanitizeSettings({ ...imported, apiKey: String(local[K_API_KEY_LOCAL] ?? imported?.apiKey ?? '') });
   await saveSettings(settings);
   return settings;
 }
@@ -661,7 +662,10 @@ export async function importAll(data: ExportData): Promise<void> {
 
   // Preserve existing API key — never overwrite from import
   const currentSettings = await getSettings();
-  const importedSettings = { ...DEFAULT_SETTINGS, ...data.settings, apiKey: data.settings?.provider === currentSettings.provider && data.settings?.baseUrl === currentSettings.baseUrl ? currentSettings.apiKey : '' };
+  const importedSettings = sanitizeSettings({ ...DEFAULT_SETTINGS, ...data.settings, apiKey: '' });
+  if (importedSettings.provider === currentSettings.provider && sameEndpoint(importedSettings.baseUrl, currentSettings.baseUrl)) {
+    importedSettings.apiKey = currentSettings.apiKey;
+  }
 
   const promises: Promise<void>[] = [
     saveSettings(importedSettings),

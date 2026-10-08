@@ -1,10 +1,10 @@
-gTabs 中文版 · TT Switch
+gTabs 中文版
 
 Based on gTabs by Srinivas Vaddi, licensed under the MIT License.
 Upstream: https://github.com/vaddisrinivas/gtabs
 Base revision: 634b564fd30a6892f11b08ffa652df0863e1f708 (version 0.5.1)
 
-This independent derivative adds TT Switch loopback integration, Simplified
+This independent derivative adds configurable OpenAI-compatible endpoints, Simplified
 Chinese UI, privacy filtering, local-only configuration, and grouping fixes.
-It is not an official release of gTabs or TT Switch. See LICENSE for the
+It is not an official release of gTabs. See LICENSE for the
 original copyright notice and permission terms.

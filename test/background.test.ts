@@ -160,7 +160,7 @@ describe('getTabs', () => {
 
 // ---------- organize ----------
 
-const TEST_SETTINGS = { ...DEFAULT_SETTINGS, provider: 'tt-switch', baseUrl: 'http://127.0.0.1:15721/tencent/v1', apiKey: 'test', model: 'test-model' };
+const TEST_SETTINGS = { ...DEFAULT_SETTINGS, provider: 'openai-compatible', baseUrl: 'http://127.0.0.1:15721/tencent/v1', apiKey: 'test', model: 'test-model' };
 
 describe('organize', () => {
   beforeEach(async () => {
@@ -546,7 +546,7 @@ describe('event listeners', () => {
     vi.useFakeTimers();
     _resetAutoCheckCooldown();
     vi.mocked(chrome.tabs.query).mockResolvedValue([]);
-    await saveSettings({ ...DEFAULT_SETTINGS, provider: 'tt-switch', baseUrl: 'http://127.0.0.1:15721/tencent/v1', model: 'llama-3.3-70b-versatile', apiKey: 'test-key', autoTrigger: true, threshold: 0, silentAutoAdd: true });
+    await saveSettings({ ...DEFAULT_SETTINGS, provider: 'openai-compatible', baseUrl: 'http://127.0.0.1:15721/tencent/v1', model: 'llama-3.3-70b-versatile', apiKey: 'test-key', autoTrigger: true, threshold: 0, silentAutoAdd: true });
   });
 
   afterEach(() => {

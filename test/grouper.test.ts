@@ -6,7 +6,7 @@ import {
 import type { TabInfo, AffinityMap, DomainRule, WeightedAffinityMap, RejectionEntry } from '../src/types';
 import { DEFAULT_SETTINGS, COLORS } from '../src/types';
 
-const TEST_SETTINGS = { ...DEFAULT_SETTINGS, provider: 'tt-switch', baseUrl: 'http://127.0.0.1:15721/tencent/v1', apiKey: 'test', model: 'test-model' };
+const TEST_SETTINGS = { ...DEFAULT_SETTINGS, provider: 'openai-compatible', baseUrl: 'http://127.0.0.1:15721/tencent/v1', apiKey: 'test', model: 'test-model' };
 
 const tabs: TabInfo[] = [
   { id: 1, title: 'GitHub - repo', url: 'https://github.com/user/repo' },

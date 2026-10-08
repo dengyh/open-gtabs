@@ -53,7 +53,7 @@ import {
 import { suggest, findDuplicates, inferTargetGroup, matchTabsToExistingGroups, truncateTitle } from './grouper';
 import type { ExtraHints } from './grouper';
 import { isAIEligible } from './privacy';
-import { completeWithUsage, fetchOllamaModels, fetchTTSwitchModels, isChromeAIAvailable, testConnection } from './llm';
+import { completeWithUsage, fetchOllamaModels, fetchOpenAIModels, isChromeAIAvailable, testConnection } from './llm';
 
 import { CLEANUP_ALARM, previewCleanup, archiveAndClose, dismissCleanup, resetDismissals, listArchives, deleteArchive, restoreArchive, cleanupSummary, refreshCleanupReminder, setupCleanupAlarm } from './cleanup';
 import { initialReport, getReport, saveReport, type OrganizationReport } from './reports';
@@ -906,11 +906,11 @@ async function checkAllWindows(scheduled = false): Promise<void> {
 }
 
 chrome.runtime.onMessage.addListener((msg: MessageType, _sender, sendResponse) => {
-  if (['fetch-tt-models', 'cleanup-preview', 'cleanup-close', 'cleanup-dismiss', 'cleanup-reset', 'cleanup-summary', 'archive-list', 'archive-restore', 'archive-delete', 'organization-report', 'manual-group-tab'].includes(msg.type)) {
+  if (['fetch-models', 'cleanup-preview', 'cleanup-close', 'cleanup-dismiss', 'cleanup-reset', 'cleanup-summary', 'archive-list', 'archive-restore', 'archive-delete', 'organization-report', 'manual-group-tab'].includes(msg.type)) {
     (async () => {
       const windowId = _sender.tab?.windowId ?? await getCurrentWindowId();
       switch (msg.type) {
-        case 'fetch-tt-models': return { models: await fetchTTSwitchModels(await getSettings()) };
+        case 'fetch-models': return { models: await fetchOpenAIModels(await getSettings()) };
         case 'cleanup-preview': return { preview: await previewCleanup(windowId) };
         case 'cleanup-close': return { cleanup: await archiveAndClose(msg.previewId, windowId, msg.tabIds) };
         case 'cleanup-dismiss': await dismissCleanup(msg.previewId, windowId, msg.tabIds, msg.forever); return {};

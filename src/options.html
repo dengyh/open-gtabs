@@ -230,7 +230,7 @@
 
   <div class="page-header">
     <div class="logo-mark">🗂️</div>
-    <div><h1>gTabs 设置</h1><p>TT Switch 中文适配版 · 设置自动保存</p></div>
+    <div><h1>gTabs 设置</h1><p>中文通用接口版 · 设置自动保存</p></div>
   </div>
 
   <!-- Tab bar -->
@@ -252,27 +252,29 @@
       <!-- Chrome AI setup guide — shown when chrome-ai selected but unavailable -->
       <div class="chrome-ai-setup hidden" id="chrome-ai-setup">
         <h3>⚡ Chrome 内置 AI（Gemini Nano）</h3>
-        <p class="step-body" style="margin-bottom:14px">当前浏览器尚未提供可用的内置模型接口。支持情况取决于 Chrome 版本、设备条件和模型下载状态。可以重新检测，或改用 TT Switch。</p>
+        <p class="step-body" style="margin-bottom:14px">当前浏览器尚未提供可用的内置模型接口。支持情况取决于 Chrome 版本、设备条件和模型下载状态。可以重新检测，或改用 OpenAI 兼容接口。</p>
         <div class="setup-actions">
           <button class="btn btn-sm" id="chrome-ai-check-btn">重新检测</button>
-          <button class="btn-ghost btn-sm" id="chrome-ai-skip-btn">改用 TT Switch</button>
+          <button class="btn-ghost btn-sm" id="chrome-ai-skip-btn">改用 OpenAI 兼容接口</button>
         </div>
       </div>
 
       <div class="form-group hidden" id="key-row">
-        <label for="apiKey">API Token <a id="signup-link" href="#" target="_blank" hidden>查看服务说明 →</a></label>
-        <input type="password" id="apiKey" placeholder="从 TT Switch 复制 API Token" />
-        <div class="slider-desc" style="margin-top:6px">TT Switch 会将标签标题和脱敏网址转发给所选模型服务；本机代理不等于离线推理。</div>
+        <label for="apiKey">API Key（服务要求时填写） <a id="signup-link" href="#" target="_blank" hidden>查看服务说明 →</a></label>
+        <input type="password" id="apiKey" placeholder="填写此模型服务的 API Key；无认证服务可留空" />
+        <div class="slider-desc" style="margin-top:6px">标签标题和脱敏网址会发送到你配置的模型接口；本机代理也可能转发给远程服务。</div>
       </div>
       <div class="form-group hidden" id="custom-endpoint-row">
-        <label for="base-url">TT Switch 接口地址</label>
-        <input type="text" id="base-url" placeholder="http://127.0.0.1:15721/tencent/v1" />
+        <label for="base-url">接口基础地址（Base URL）</label>
+        <input type="text" id="base-url" placeholder="https://api.example.com/v1 或 http://localhost:8000/v1" />
+        <button class="btn-ghost btn-sm" id="authorize-endpoint" type="button" hidden style="margin-top:8px">授权此接口</button>
+        <p class="slider-desc" id="endpoint-status" role="status"></p>
         <label for="custom-model" style="margin-top:12px">当前模型 ID（也可手动填写）</label>
-        <input type="text" id="custom-model" placeholder="gemini-3.5-flash" />
-        <div class="slider-desc" style="margin-top:6px">API Token 填 TT Switch → 通用 API → 腾讯内网通用服务的 API Token。标题和网址会经 TT Switch 发给所选模型。密钥以本地明文存储，不通过 Chrome 同步。网址参数、片段和账号密码不会发送；标题和路径仍可能包含敏感内容。</div>
+        <input type="text" id="custom-model" placeholder="填写服务支持的模型 ID" />
+        <div class="slider-desc" style="margin-top:6px">使用 OpenAI Chat Completions 兼容协议；填写基础地址，不包含 /chat/completions。远程服务须使用 HTTPS，本机支持 HTTP。更换基础地址会清空密钥，请重新填写。密钥只保存在本机，不同步、不导出；标题和路径仍可能包含敏感内容。</div>
       </div>
       <div class="form-row" style="margin-top:14px">
-        <div class="form-group" id="model-select-row"><label for="model-select">模型</label><select id="model-select" aria-label="选择模型"></select><button class="btn-ghost btn-sm" id="refresh-models" type="button" hidden>刷新 TT Switch 模型</button><p class="slider-desc" id="models-status" role="status"></p></div>
+        <div class="form-group" id="model-select-row"><label for="model-select">模型</label><select id="model-select" aria-label="选择模型"></select><button class="btn-ghost btn-sm" id="refresh-models" type="button" hidden>刷新模型列表</button><p class="slider-desc" id="models-status" role="status"></p></div>
         <div class="form-action" style="display:flex;align-items:center;gap:8px">
           <button class="btn btn-sm" id="test-btn">测试连接</button>
           <span class="test-result" id="test-result"></span>
@@ -400,7 +402,7 @@
         <label><input type="checkbox" id="cleanup-reminder" /> 每小时检查闲置标签，并在插件内提示</label>
       </div>
       <div class="slider-group" style="margin-bottom:20px">
-        <div class="slider-header"><div><div class="slider-label">估算费用上限（美元）</div><div class="slider-desc">仅针对已知定价的估算；不代表 TT Switch 实际额度。0 为不限。</div></div><span class="slider-val" id="spendingCapVal">0</span></div>
+        <div class="slider-header"><div><div class="slider-label">估算费用上限（美元）</div><div class="slider-desc">仅针对已知定价的估算；不代表服务商的实际额度。0 为不限。</div></div><span class="slider-val" id="spendingCapVal">0</span></div>
         <input type="range" id="spendingCapUSD" min="0" max="100" value="0" step="1" />
       </div>
       <div class="data-actions">

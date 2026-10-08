@@ -31,7 +31,7 @@ describe('E2E Integration: Message dispatch → Background → Storage', () => {
     const { saveSettings } = await import('../src/storage');
     await saveSettings({
       ...DEFAULT_SETTINGS,
-      provider: 'tt-switch',
+      provider: 'openai-compatible',
       apiKey: 'test-key',
       baseUrl: 'http://127.0.0.1:15721/tencent/v1',
       model: 'gpt-4.1',

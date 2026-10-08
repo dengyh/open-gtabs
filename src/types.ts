@@ -24,7 +24,7 @@ export interface ProviderPreset {
 
 export const PROVIDERS: ProviderPreset[] = [
   { id: 'chrome-ai', name: 'Chrome 内置 AI', baseUrl: '', models: ['gemini-nano'], needsKey: false, isBuiltIn: true, helpText: '在本机运行，无需 API 密钥；是否可用取决于 Chrome 版本和设备。' },
-  { id: 'tt-switch', name: 'TT Switch', baseUrl: 'http://127.0.0.1:15721/tencent/v1', models: ['gemini-3.5-flash'], needsKey: true, customEndpoint: true, helpText: '使用本机 TT Switch 的腾讯内网通用 API。请保持 TT Switch 运行。' },
+  { id: 'openai-compatible', name: 'OpenAI 兼容接口', baseUrl: '', models: [], needsKey: true, customEndpoint: true, helpText: '填写服务的 Base URL、API Key 和模型；支持 HTTPS 服务与本机代理。' },
   { id: 'ollama', name: 'Ollama（本机）', baseUrl: 'http://localhost:11434/v1', models: [], needsKey: false, canFetchModels: true, signupUrl: 'https://ollama.com/download', helpText: '在本机运行模型，需先安装并启动 Ollama。' },
 ];
 
@@ -289,7 +289,7 @@ export type MessageType =
   | { type: 'test-connection' }
   | { type: 'check-chrome-ai' }
   | { type: 'fetch-ollama-models' }
-  | { type: 'fetch-tt-models' }
+  | { type: 'fetch-models' }
   | { type: 'cleanup-preview' }
   | { type: 'cleanup-close'; previewId: string; tabIds: number[] }
   | { type: 'cleanup-dismiss'; previewId: string; tabIds: number[]; forever: boolean }

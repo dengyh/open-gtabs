@@ -173,7 +173,7 @@ export async function refreshCleanupReminder(): Promise<void> {
   let count = 0;
   for (const window of windows) if (window.id !== undefined && !window.incognito) count += (await candidates(window.id)).length;
   await chrome.storage.local.set({ cleanupSummary: { count, checkedAt: Date.now() } });
-  await chrome.action.setTitle?.({ title: count ? `gTabs · ${count} 个闲置标签可检查` : 'gTabs 中文版 · TT Switch' });
+  await chrome.action.setTitle?.({ title: count ? `gTabs · ${count} 个闲置标签可检查` : 'gTabs 中文版' });
   if (!(await getSuggestions())?.length) {
     await chrome.action.setBadgeText({ text: count ? '清' : '' });
     if (count) await chrome.action.setBadgeBackgroundColor({ color: '#b87819' });

@@ -104,6 +104,8 @@ export function resetAllMocks() {
   vi.mocked(chrome.action.setBadgeBackgroundColor).mockReset().mockResolvedValue(undefined);
   vi.mocked(chrome.runtime.openOptionsPage).mockReset().mockResolvedValue(undefined as any);
   vi.mocked(fetch).mockReset();
+  vi.mocked(chrome.permissions.contains).mockReset().mockResolvedValue(false);
+  vi.mocked(chrome.permissions.request).mockReset().mockResolvedValue(false);
 }
 
 const groupedTabs = new Map<number, number>();
@@ -141,6 +143,10 @@ let groupIdCounter = 100;
     getLastFocused: vi.fn(() => Promise.resolve({ id: 1 })),
     create: vi.fn(() => Promise.resolve({ id: 2 })),
     update: vi.fn(() => Promise.resolve()),
+  },
+  permissions: {
+    contains: vi.fn(async () => false),
+    request: vi.fn(async () => false),
   },
   scripting: {
     executeScript: vi.fn(() => Promise.resolve([])),

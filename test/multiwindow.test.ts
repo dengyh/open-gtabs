@@ -27,7 +27,7 @@ beforeEach(async () => {
     (query.windowId === undefined || t.windowId === query.windowId) && (!query.currentWindow || t.windowId === 1)));
   vi.mocked(chrome.tabs.get).mockImplementation(async id => ({ ...tabs.find(t => t.id === id) }));
   vi.mocked(fetch).mockImplementation(async () => modelReply());
-  await saveSettings({ ...DEFAULT_SETTINGS, provider: 'tt-switch', apiKey: 'test-key', model: 'test-model',
+  await saveSettings({ ...DEFAULT_SETTINGS, provider: 'openai-compatible', apiKey: 'test-key', model: 'test-model',
     baseUrl: 'http://127.0.0.1:15721/tencent/v1', autoTrigger: true, threshold: 2, silentAutoAdd: false });
 });
 afterEach(() => vi.useRealTimers());
@@ -99,7 +99,7 @@ describe('multi-window automatic organization', () => {
   });
 
   it('runs scheduled reorganization in both windows even with auto trigger off', async () => {
-    await saveSettings({ ...DEFAULT_SETTINGS, provider: 'tt-switch', apiKey: 'test-key', model: 'test-model',
+    await saveSettings({ ...DEFAULT_SETTINGS, provider: 'openai-compatible', apiKey: 'test-key', model: 'test-model',
       baseUrl: 'http://127.0.0.1:15721/tencent/v1', autoTrigger: false, reorgSchedule: 'daily' });
     await fire(chrome.alarms.onAlarm, { name: 'gtabs-reorg' });
     expect(fetch).toHaveBeenCalledTimes(2);

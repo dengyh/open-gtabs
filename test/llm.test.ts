@@ -13,14 +13,14 @@ function mockOk(content: string) {
 beforeEach(() => { vi.mocked(fetch).mockReset(); });
 
 describe('complete - request format', () => {
-  it('uses the Tencent route with the selected TT Switch model', async () => {
+  it('uses an arbitrary local gateway path with the selected model', async () => {
     mockOk('OK');
-    await complete({ provider: 'tt-switch', baseUrl: 'http://127.0.0.1:15721/tencent/v1', apiKey: 'ttsw-test', model: 'gemini-3.5-flash' }, [{ role: 'user', content: 'hi' }]);
+    await complete({ provider: 'openai-compatible', baseUrl: 'http://127.0.0.1:15721/tencent/v1', apiKey: 'ttsw-test', model: 'gemini-3.5-flash' }, [{ role: 'user', content: 'hi' }]);
     expect(fetch).toHaveBeenCalledWith('http://127.0.0.1:15721/tencent/v1/chat/completions', expect.objectContaining({ redirect: 'error', body: expect.stringContaining('gemini-3.5-flash') }));
   });
 
-  it.each(['https://example.com/tencent/v1', 'https://api.anthropic.com', 'http://127.0.0.1:15721/v1'])('refuses to send a TT token to %s', async (baseUrl) => {
-    await expect(complete({ ...cfg, provider: 'tt-switch', baseUrl }, [])).rejects.toThrow('TT Switch');
+  it.each(['https://example.com/tencent/v1', 'https://api.anthropic.com', 'http://remote.example/v1'])('refuses to send a key to %s', async (baseUrl) => {
+    await expect(complete({ ...cfg, provider: 'openai-compatible', baseUrl }, [])).rejects.toThrow();
     expect(fetch).not.toHaveBeenCalled();
   });
   it('sends correct OpenAI-compatible request shape', async () => {
@@ -275,22 +275,22 @@ describe('Chrome AI', () => {
   });
 });
 
-describe('TT Switch model discovery', () => {
-  const config = { provider: 'tt-switch', baseUrl: 'http://127.0.0.1:15721/tencent/v1', apiKey: 'fixture-token', model: 'selected' };
+describe('OpenAI-compatible model discovery', () => {
+  const config = { provider: 'openai-compatible', baseUrl: 'http://127.0.0.1:15721/tencent/v1', apiKey: 'fixture-token', model: 'selected' };
   it('reads real IDs using authentication, without sending browsing information', async () => {
-    const { fetchTTSwitchModels } = await import('../src/llm');
+    const { fetchOpenAIModels } = await import('../src/llm');
     vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ data: [{ id: 'b' }, { id: 'a' }, { id: 'b' }, { id: 3 }, null] })));
-    expect(await fetchTTSwitchModels(config)).toEqual(['a', 'b']);
+    expect(await fetchOpenAIModels(config)).toEqual(['a', 'b']);
     expect(fetch).toHaveBeenCalledWith(config.baseUrl + '/models', expect.objectContaining({ method: 'GET', redirect: 'error', headers: { Authorization: 'Bearer fixture-token' } }));
     expect(vi.mocked(fetch).mock.calls[0][1]?.body).toBeUndefined();
   });
-  it.each(['https://evil.example/tencent/v1', 'http://127.0.0.1:15721/v1', 'http://user:pass@localhost/tencent/v1'])('rejects unsafe address %s before sending the credential', async baseUrl => {
-    const { fetchTTSwitchModels } = await import('../src/llm');
-    await expect(fetchTTSwitchModels({ ...config, baseUrl })).rejects.toThrow(); expect(fetch).not.toHaveBeenCalled();
+  it.each(['https://evil.example/tencent/v1', 'http://remote.example/v1', 'http://user:pass@localhost/tencent/v1'])('rejects unsafe address %s before sending the credential', async baseUrl => {
+    const { fetchOpenAIModels } = await import('../src/llm');
+    await expect(fetchOpenAIModels({ ...config, baseUrl })).rejects.toThrow(); expect(fetch).not.toHaveBeenCalled();
   });
   it('does not expose raw server errors', async () => {
-    const { fetchTTSwitchModels } = await import('../src/llm');
+    const { fetchOpenAIModels } = await import('../src/llm');
     vi.mocked(fetch).mockResolvedValue(new Response('sensitive upstream body', { status: 401 }));
-    await expect(fetchTTSwitchModels(config)).rejects.toThrow('HTTP 401');
+    await expect(fetchOpenAIModels(config)).rejects.toThrow('HTTP 401');
   });
 });

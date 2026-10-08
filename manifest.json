@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "gTabs 中文版 · TT Switch",
-  "version": "0.5.3",
-  "version_name": "0.5.3 中文安全适配版",
-  "description": "使用本机 TT Switch、Ollama 或 Chrome 内置 AI 整理标签页，支持分组预览、撤销、站点排除和网址脱敏。",
+  "name": "gTabs 中文版",
+  "version": "0.6.0",
+  "version_name": "0.6.0 中文通用接口版",
+  "description": "通过 OpenAI 兼容接口、Ollama 或 Chrome 内置 AI 整理标签，支持分组预览、撤销、站点排除和网址脱敏。",
   "permissions": [
     "tabs",
     "tabGroups",
@@ -51,6 +51,9 @@
   },
   "incognito": "split",
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' http://127.0.0.1:* http://localhost:*"
-  }
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' http://127.0.0.1:* http://localhost:* https:"
+  },
+  "optional_host_permissions": [
+    "https://*/*"
+  ]
 }
