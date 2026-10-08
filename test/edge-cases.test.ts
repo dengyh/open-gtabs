@@ -352,6 +352,7 @@ describe('restoreWorkspaceByName', () => {
     });
 
     let tabIdCounter = 200;
+    vi.mocked(chrome.tabs.get).mockImplementation(async id => ({ id, windowId: 99, groupId: -1 }) as any);
     vi.mocked(chrome.windows.create).mockResolvedValue({ id: 99 } as any);
     vi.mocked(chrome.tabs.create).mockImplementation(async () => ({
       id: tabIdCounter++,

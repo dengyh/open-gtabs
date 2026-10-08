@@ -25,6 +25,7 @@ import {
   getHistory,
   getRejections,
   getSettings,
+  getSuggestions,
   getStats,
   getUndoSnapshot,
   getWeightedAffinity,
@@ -91,14 +92,17 @@ const IMPORTANT_APP_PATTERNS = [
 ] as const;
 const MAX_TRACKED_TAB_RELATIONS = 5000;
 
-let autoCheckInFlight = false;
-let lastAutoCheckTime = 0;
+// Serialize automatic jobs, but keep eligibility, cooldowns and pending work per window.
+let autoCheckQueue: Promise<void> = Promise.resolve();
+const pendingAutoChecks = new Map<number, boolean>();
+const lastAutoCheckTimes = new Map<number, number>();
+const WINDOW_CHECK_PREFIX = 'gtabs-window-check-';
 let contextMenuRebuildQueue: Promise<void> = Promise.resolve();
 const AUTO_CHECK_COOLDOWN_MS = 60_000; // 60s minimum between auto-organize
 const MAX_CONTEXT_GROUP_ID = 1_000_000_000;
 
 /** Reset cooldown — exported for testing only */
-export function _resetAutoCheckCooldown() { lastAutoCheckTime = 0; }
+export function _resetAutoCheckCooldown() { lastAutoCheckTimes.clear(); pendingAutoChecks.clear(); }
 
 export function isTabUrlAllowed(url?: string | null): url is string {
   if (!url || url.length === 0) return false;
@@ -127,12 +131,12 @@ export function isGroupedTab(tab: { groupId?: number | undefined }): boolean {
   return tab.groupId !== undefined && tab.groupId !== -1;
 }
 
-async function getExistingTabIds(tabIds: number[]): Promise<number[]> {
+async function getExistingTabIds(tabIds: number[], windowId?: number): Promise<number[]> {
   const existing: number[] = [];
   for (const id of tabIds) {
     try {
       const tab = await chrome.tabs.get(id);
-      if (tab?.id !== undefined) existing.push(id);
+      if (tab?.id !== undefined && (windowId === undefined || tab.windowId === windowId)) existing.push(id);
     } catch {
       // stale tab id - skip
     }
@@ -148,9 +152,10 @@ async function ungroupTabsSafe(tabIds: number[]): Promise<void> {
 }
 
 async function groupTabsSafe(tabIds: number[], groupId?: number, windowId?: number): Promise<number | null> {
-  const existing = await getExistingTabIds(tabIds);
+  const existing = await getExistingTabIds(tabIds, windowId);
   if (existing.length === 0) return null;
   if (groupId !== undefined) {
+    if (windowId !== undefined && !(await chrome.tabGroups.query({ windowId })).some(group => group.id === groupId)) return null;
     await chrome.tabs.group({ tabIds: existing as [number, ...number[]], groupId });
     return groupId;
   }
@@ -175,14 +180,14 @@ function toWorkspaceTab(
 }
 
 async function getCurrentWindowId(): Promise<number> {
+  // In a service worker, getCurrent() can refer to a different browser window.
+  // Event/message callers pass their source window; toolbar commands use focus.
   let win: chrome.windows.Window | undefined;
   try {
-    win = await chrome.windows.getCurrent();
-  } catch { /* service worker may not have a current window */ }
+    win = await chrome.windows.getLastFocused({ populate: false, windowTypes: ['normal'] });
+  } catch { /* Fall back if there is no focused normal window. */ }
   if (win?.id === undefined) {
-    try {
-      win = await chrome.windows.getLastFocused({ populate: false });
-    } catch { /* ignore */ }
+    try { win = await chrome.windows.getCurrent(); } catch { /* ignore */ }
   }
   if (win?.id === undefined) throw new Error('无法确定当前窗口');
   return win.id;
@@ -281,8 +286,8 @@ export async function snapshotCurrentState(targetWindowId?: number): Promise<Und
   return { timestamp: Date.now(), windowId, groupDetails, groups, ungrouped };
 }
 
-export async function restoreSnapshot(snapshot: UndoSnapshot): Promise<void> {
-  const windowId = await getCurrentWindowId();
+export async function restoreSnapshot(snapshot: UndoSnapshot, targetWindowId?: number): Promise<void> {
+  const windowId = targetWindowId ?? await getCurrentWindowId();
   if (snapshot.windowId !== undefined && snapshot.windowId !== windowId) {
     throw new Error('请切换到上次整理的窗口后再撤销');
   }
@@ -414,7 +419,7 @@ export async function organize(ungroupedOnly = false, targetWindowId?: number): 
 
     if (tabs.length < 2) {
       report.items.forEach(t => { if (t.reason === 'unmatched') t.reason = 'insufficient'; });
-      await saveSuggestions(null); await saveReport(report);
+      await saveSuggestions(null, windowId); await saveReport(report);
       return { error: '至少需要 2 个符合隐私规则的标签才能整理', report };
     }
 
@@ -473,7 +478,7 @@ export async function organize(ungroupedOnly = false, targetWindowId?: number): 
 
     if (tabsForLLM.length === 0 && preMatched.length > 0) {
       const suggestions = preMatched;
-      await chrome.storage.local.set({ suggestions, suggestionsWindowId: windowId });
+      await saveSuggestions(suggestions, windowId);
       await chrome.action.setBadgeText({ text: String(suggestions.length) });
       await chrome.action.setBadgeBackgroundColor({ color: '#8ab4f8' });
       const ids = new Set(suggestions.flatMap(g => g.tabs.map(t => t.id)));
@@ -491,7 +496,7 @@ export async function organize(ungroupedOnly = false, targetWindowId?: number): 
     const allSuggestions = [...preMatched, ...result.suggestions];
 
     await recordModelUsage(result.inputTokens, result.outputTokens);
-    await chrome.storage.local.set({ suggestions: allSuggestions, suggestionsWindowId: windowId });
+    await saveSuggestions(allSuggestions, windowId);
     await chrome.action.setBadgeText({ text: String(allSuggestions.length) });
     await chrome.action.setBadgeBackgroundColor({ color: '#8ab4f8' });
 
@@ -504,7 +509,7 @@ export async function organize(ungroupedOnly = false, targetWindowId?: number): 
       report.items.forEach(t => { if (t.reason === 'unmatched') t.reason = 'failed'; });
       await saveReport(report).catch(() => {});
     }
-    await saveSuggestions(null).catch(() => {});
+    if (report) await saveSuggestions(null, report.windowId).catch(() => {});
     return { report, error: e instanceof Error ? e.message : '未知错误' };
   }
 }
@@ -512,7 +517,7 @@ export async function organize(ungroupedOnly = false, targetWindowId?: number): 
 export async function applyGroups(suggestions: GroupSuggestion[], targetWindowId?: number): Promise<OrganizationReport> {
   const windowId = targetWindowId ?? await getCurrentWindowId();
   const snapshot = await snapshotCurrentState(windowId);
-  await saveUndoSnapshot(snapshot);
+  await saveUndoSnapshot(snapshot, windowId);
   const settings = await getSettings();
   const groups = await chrome.tabGroups.query({ windowId });
   const tabs = await chrome.tabs.query({ windowId });
@@ -566,20 +571,21 @@ export async function applyGroups(suggestions: GroupSuggestion[], targetWindowId
   await updateAffinity(applied);
   await addHistory(applied);
   await incrementStats(applied.reduce((n, g) => n + g.tabs.length, 0));
-  await saveSuggestions(null);
+  await saveSuggestions(null, windowId);
   await saveReport(report);
   await chrome.action.setBadgeText({ text: '' });
   void refreshCleanupReminder().catch(() => {});
   return report;
 }
 
-export async function undoLastGrouping(): Promise<{ error?: string }> {
-  const snapshot = await getUndoSnapshot();
+export async function undoLastGrouping(targetWindowId?: number): Promise<{ error?: string }> {
+  const windowId = targetWindowId ?? await getCurrentWindowId();
+  const snapshot = await getUndoSnapshot(windowId);
   if (!snapshot) return { error: '没有可撤销的分组记录' };
 
   try {
-    await restoreSnapshot(snapshot);
-    await saveUndoSnapshot(null);
+    await restoreSnapshot(snapshot, windowId);
+    await saveUndoSnapshot(null, windowId);
     await chrome.storage.local.remove(`organizationReport:${snapshot.windowId ?? await getCurrentWindowId()}`);
     return {};
   } catch (e) {
@@ -696,7 +702,7 @@ export async function exportGroupsAsMarkdown(): Promise<string> {
 }
 
 export async function deleteAllTabGroups(): Promise<number> {
-  await saveSuggestions(null);
+  await saveSuggestions(null, await getCurrentWindowId());
   await chrome.action.setBadgeText({ text: '' });
 
   const settings = await getSettings();
@@ -868,18 +874,35 @@ export async function setupReorgAlarm(): Promise<void> {
   chrome.alarms.create(REORG_ALARM_NAME, { delayInMinutes, periodInMinutes });
 }
 
-async function checkAutoTrigger(): Promise<void> {
+async function checkAutoTrigger(windowId: number, scheduled: boolean): Promise<void> {
   const settings = await getSettings();
-  if (!settings.autoTrigger) return;
+  if (scheduled ? settings.reorgSchedule === 'off' : !settings.autoTrigger) return;
+  const win = await chrome.windows.get(windowId);
+  if (win.type !== 'normal' || win.incognito) return;
 
-  const tabs = (await chrome.tabs.query({ currentWindow: true }))
-    .filter(tab => tab.id !== undefined && isTabUrlAllowed(tab.url) && isAIEligible(tab.url!, settings) && !isGroupedTab(tab));
-  if (tabs.length >= settings.threshold) {
-    const result = await organize(true);
-    if (result.suggestions?.length) {
-      await applyGroups(result.suggestions, result.report?.windowId);
+  if (!scheduled) {
+    const tabs = (await chrome.tabs.query({ windowId }))
+      .filter(tab => tab.id !== undefined && tab.status !== 'loading' && isTabUrlAllowed(tab.url)
+        && isAIEligible(tab.url!, settings) && !isGroupedTab(tab));
+    if (tabs.length < Math.max(2, settings.threshold)) return;
+    const retryAt = (lastAutoCheckTimes.get(windowId) ?? 0) + AUTO_CHECK_COOLDOWN_MS;
+    if (Date.now() < retryAt) {
+      await chrome.alarms.create(`${WINDOW_CHECK_PREFIX}${windowId}`, { when: retryAt });
+      return;
     }
   }
+  lastAutoCheckTimes.set(windowId, Date.now());
+  await chrome.alarms.clear(`${WINDOW_CHECK_PREFIX}${windowId}`);
+  const result = await organize(scheduled ? settings.mergeMode : true, windowId);
+  if (result.suggestions?.length) await applyGroups(result.suggestions, windowId);
+}
+
+async function checkAllWindows(scheduled = false): Promise<void> {
+  const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
+  // Enqueue first, then await the tail, so one failure never drops another window.
+  const jobs = windows.filter(win => win.type === 'normal' && !win.incognito && win.id !== undefined)
+    .map(win => triggerAutoCheck(win.id!, scheduled));
+  await Promise.all(jobs);
 }
 
 chrome.runtime.onMessage.addListener((msg: MessageType, _sender, sendResponse) => {
@@ -931,15 +954,15 @@ chrome.runtime.onMessage.addListener((msg: MessageType, _sender, sendResponse) =
   if (msg.type === 'apply') {
     (async () => {
       const windowId = _sender.tab?.windowId ?? await getCurrentWindowId();
-      const saved = await chrome.storage.local.get('suggestionsWindowId');
-      if (saved.suggestionsWindowId !== windowId) throw new Error('分组建议来自其他窗口或已过期，请在当前窗口重新整理。');
+      const saved = await getSuggestions(windowId);
+      if (!saved?.length) throw new Error('分组建议来自其他窗口或已过期，请在当前窗口重新整理。');
       return applyGroups(msg.suggestions, windowId);
     })().then(report => sendResponse({ type: 'status', status: 'applied', report })).catch(e => sendResponse({ type: 'status', status: 'error', error: e.message }));
     return true;
   }
 
   if (msg.type === 'undo') {
-    undoLastGrouping().then(r => sendResponse({ type: 'status', status: r.error ? 'error' : 'undone', error: r.error }));
+    undoLastGrouping(_sender.tab?.windowId).then(r => sendResponse({ type: 'status', status: r.error ? 'error' : 'undone', error: r.error }));
     return true;
   }
 
@@ -1237,22 +1260,24 @@ chrome.tabGroups?.onUpdated?.addListener((group) => {
 });
 
 chrome.windows.onRemoved?.addListener(windowId => {
-  void chrome.storage.local.remove(`organizationReport:${windowId}`).catch(() => {});
+  pendingAutoChecks.delete(windowId);
+  lastAutoCheckTimes.delete(windowId);
+  void chrome.alarms.clear(`${WINDOW_CHECK_PREFIX}${windowId}`);
+  void chrome.storage.local.remove([`organizationReport:${windowId}`, `suggestions:${windowId}`, `undoSnapshot:${windowId}`]).catch(() => {});
 });
 
-chrome.runtime.onStartup?.addListener(() => { void setupCleanupAlarm().then(refreshCleanupReminder).catch(() => {}); });
+chrome.runtime.onStartup?.addListener(() => {
+  chrome.alarms.create(ALARM_NAME, { periodInMinutes: 2 });
+  void setupReorgAlarm().catch(() => {});
+  void setupCleanupAlarm().then(refreshCleanupReminder).catch(() => {});
+});
 
 chrome.alarms.onAlarm.addListener(alarm => {
   if (alarm.name === CLEANUP_ALARM) void refreshCleanupReminder().catch(() => {});
-  if (alarm.name === ALARM_NAME) triggerAutoCheck();
-  if (alarm.name === REORG_ALARM_NAME) {
-    getSettings().then(settings => {
-      if (settings.reorgSchedule !== 'off') {
-        organize(settings.mergeMode).then(result => {
-          if (result.suggestions?.length) applyGroups(result.suggestions, result.report?.windowId);
-        });
-      }
-    });
+  if (alarm.name === ALARM_NAME) return checkAllWindows().catch(() => {});
+  if (alarm.name === REORG_ALARM_NAME) return checkAllWindows(true).catch(() => {});
+  if (alarm.name.startsWith(WINDOW_CHECK_PREFIX)) {
+    return triggerAutoCheck(Number(alarm.name.slice(WINDOW_CHECK_PREFIX.length)));
   }
   if (alarm.name.startsWith(SNOOZE_ALARM_PREFIX)) {
     const snoozeId = alarm.name.slice(SNOOZE_ALARM_PREFIX.length);
@@ -1275,20 +1300,22 @@ chrome.alarms.onAlarm.addListener(alarm => {
   }
 });
 
-function triggerAutoCheck() {
-  if (autoCheckInFlight) return;
-  const now = Date.now();
-  if (now - lastAutoCheckTime < AUTO_CHECK_COOLDOWN_MS) return;
-
-  autoCheckInFlight = true;
-  lastAutoCheckTime = now;
-  checkAutoTrigger()
-    .catch(() => {
-      // Keep auto-trigger best-effort and never break the event loop on runtime failures.
-    })
-    .finally(() => {
-      autoCheckInFlight = false;
-    });
+function triggerAutoCheck(windowId: number, scheduled = false): Promise<void> {
+  if (!Number.isInteger(windowId) || windowId < 0) return Promise.resolve();
+  if (pendingAutoChecks.has(windowId)) {
+    if (scheduled) pendingAutoChecks.set(windowId, true);
+    return autoCheckQueue;
+  }
+  pendingAutoChecks.set(windowId, scheduled);
+  autoCheckQueue = autoCheckQueue.then(async () => {
+    const runScheduled = pendingAutoChecks.get(windowId);
+    if (runScheduled === undefined) return; // Window closed while queued.
+    pendingAutoChecks.delete(windowId);
+    await checkAutoTrigger(windowId, runScheduled);
+  }).catch(() => {
+    // Closed windows and failed calls must not block the rest of the queue.
+  });
+  return autoCheckQueue;
 }
 
 chrome.tabs.onCreated?.addListener((tab: chrome.tabs.Tab) => {
@@ -1300,7 +1327,7 @@ chrome.tabs.onCreated?.addListener((tab: chrome.tabs.Tab) => {
       if (oldest !== undefined) openerMap.delete(oldest);
     }
   }
-  triggerAutoCheck();
+  if (tab?.windowId !== undefined) return triggerAutoCheck(tab.windowId);
 });
 
 chrome.tabs.onRemoved?.addListener((tabId: number) => {
@@ -1328,11 +1355,8 @@ chrome.storage?.onChanged?.addListener((changes, areaName) => {
   }
 });
 
-chrome.tabs.onUpdated?.addListener(async (tabId, changeInfo, tab) => {
-  if (changeInfo.status !== 'complete' || !tab.url || tab.windowId === undefined) return;
-  if (!isTabUrlAllowed(tab.url)) return;
-
-  triggerAutoCheck();
+async function routeUpdatedTab(tabId: number, tab: chrome.tabs.Tab): Promise<void> {
+  if (!tab.url) return;
 
   if (isGroupedTab(tab)) {
     const settings = await getSettings();
@@ -1372,7 +1396,7 @@ chrome.tabs.onUpdated?.addListener(async (tabId, changeInfo, tab) => {
     try {
       const openerTab = await chrome.tabs.get(openerId);
       if (isGroupedTab(openerTab) && openerTab.windowId === tab.windowId) {
-        await groupTabsSafe([tabId], openerTab.groupId);
+        await groupTabsSafe([tabId], openerTab.groupId, tab.windowId);
         return;
       }
     } catch { /* opener may have been closed */ }
@@ -1388,9 +1412,9 @@ chrome.tabs.onUpdated?.addListener(async (tabId, changeInfo, tab) => {
   try {
     const groups = await chrome.tabGroups.query({ windowId: tab.windowId, title: inferred.name });
     if (groups.length > 0) {
-      await groupTabsSafe([tabId], groups[0].id);
+      await groupTabsSafe([tabId], groups[0].id, tab.windowId);
     } else {
-      const newGroupId = await groupTabsSafe([tabId]);
+      const newGroupId = await groupTabsSafe([tabId], undefined, tab.windowId);
       if (newGroupId === null) return;
       await chrome.tabGroups.update(newGroupId, {
         title: inferred.name,
@@ -1401,4 +1425,11 @@ chrome.tabs.onUpdated?.addListener(async (tabId, changeInfo, tab) => {
   } catch {
     // Ignored if grouping fails while the window is changing.
   }
+}
+
+chrome.tabs.onUpdated?.addListener(async (tabId, changeInfo, tab) => {
+  if (changeInfo.status !== 'complete' || !isTabUrlAllowed(tab.url) || tab.windowId === undefined || tab.incognito) return;
+  // Let local routing finish first; AI then sees the remaining ungrouped tabs.
+  try { await routeUpdatedTab(tabId, tab); }
+  finally { await triggerAutoCheck(tab.windowId); }
 });

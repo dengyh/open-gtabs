@@ -279,13 +279,26 @@ export function formatWeightedAffinityHints(weighted: WeightedAffinityMap, now =
 
 // --- Suggestions (local) ---
 
-export async function getSuggestions(): Promise<GroupSuggestion[] | null> {
-  const data = await chrome.storage.local.get({ [K.suggestions]: null });
-  return data[K.suggestions] as GroupSuggestion[] | null;
+export async function getSuggestions(windowId?: number): Promise<GroupSuggestion[] | null> {
+  if (windowId === undefined) {
+    // The shared toolbar badge may reflect pending suggestions in any window.
+    const data = await chrome.storage.local.get(null);
+    const suggestions = Object.entries(data).filter(([key]) => key === K.suggestions || key.startsWith(`${K.suggestions}:`))
+      .flatMap(([, value]) => Array.isArray(value) ? value : []) as GroupSuggestion[];
+    return suggestions.length ? suggestions : null;
+  }
+  const key = `${K.suggestions}:${windowId}`;
+  const data = await chrome.storage.local.get([key, K.suggestions, 'suggestionsWindowId']);
+  if (key in data) return data[key] as GroupSuggestion[] | null;
+  return data.suggestionsWindowId === windowId ? (data[K.suggestions] as GroupSuggestion[] | null) ?? null : null;
 }
 
-export async function saveSuggestions(suggestions: GroupSuggestion[] | null): Promise<void> {
-  await chrome.storage.local.set({ [K.suggestions]: suggestions });
+export async function saveSuggestions(suggestions: GroupSuggestion[] | null, windowId?: number): Promise<void> {
+  await chrome.storage.local.set({ [windowId === undefined ? K.suggestions : `${K.suggestions}:${windowId}`]: suggestions });
+  if (windowId !== undefined) {
+    const legacy = await chrome.storage.local.get('suggestionsWindowId');
+    if (legacy.suggestionsWindowId === windowId) await chrome.storage.local.remove([K.suggestions, 'suggestionsWindowId']);
+  }
 }
 
 // --- Domain Rules (local, with one-time migration) ---
@@ -334,13 +347,21 @@ export async function removeWorkspace(name: string): Promise<void> {
 
 // --- Undo Snapshot (local) ---
 
-export async function getUndoSnapshot(): Promise<UndoSnapshot | null> {
-  const data = await chrome.storage.local.get({ [K.undoSnapshot]: null });
-  return data[K.undoSnapshot] as UndoSnapshot | null;
+export async function getUndoSnapshot(windowId?: number): Promise<UndoSnapshot | null> {
+  const key = windowId === undefined ? K.undoSnapshot : `${K.undoSnapshot}:${windowId}`;
+  const data = await chrome.storage.local.get([key, K.undoSnapshot]);
+  if (key in data) return data[key] as UndoSnapshot | null;
+  const legacy = data[K.undoSnapshot] as UndoSnapshot | undefined;
+  return legacy && (legacy.windowId === undefined || legacy.windowId === windowId) ? legacy : null;
 }
 
-export async function saveUndoSnapshot(snapshot: UndoSnapshot | null): Promise<void> {
-  await chrome.storage.local.set({ [K.undoSnapshot]: snapshot });
+export async function saveUndoSnapshot(snapshot: UndoSnapshot | null, windowId?: number): Promise<void> {
+  await chrome.storage.local.set({ [windowId === undefined ? K.undoSnapshot : `${K.undoSnapshot}:${windowId}`]: snapshot });
+  if (windowId !== undefined) {
+    const data = await chrome.storage.local.get(K.undoSnapshot);
+    const legacy = data[K.undoSnapshot] as UndoSnapshot | undefined;
+    if (legacy && (legacy.windowId === undefined || legacy.windowId === windowId)) await chrome.storage.local.remove(K.undoSnapshot);
+  }
 }
 
 // --- Stats (local) ---

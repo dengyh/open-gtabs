@@ -299,7 +299,7 @@
         <input type="range" id="maxGroups" min="2" max="15" value="6" />
       </div>
       <div class="slider-group">
-        <div class="slider-header"><div><div class="slider-label">自动整理阈值</div><div class="slider-desc">可参与 AI 整理的未分组标签达到此数量时触发</div></div><span class="slider-val" id="thresholdVal">5</span></div>
+        <div class="slider-header"><div><div class="slider-label">自动整理阈值</div><div class="slider-desc">每个窗口的可参与 AI 整理的未分组标签达到此数量时触发</div></div><span class="slider-val" id="thresholdVal">5</span></div>
         <input type="range" id="threshold" min="2" max="25" value="5" />
       </div>
       <div class="slider-group" style="margin-bottom:20px">
@@ -307,7 +307,7 @@
         <input type="range" id="maxTitleLength" min="20" max="200" value="80" step="5" />
       </div>
 
-      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="autoTrigger" aria-label="自动整理" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>自动整理</span><p>达到阈值后自动调用模型并应用分组；新标签加载完成和定时检查均可触发。</p></div></div>
+      <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="autoTrigger" aria-label="自动整理" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>自动整理</span><p>每个普通窗口独立计数和冷却，达到阈值后自动分组；冷却期间的新标签会补查，不跨窗口移动。</p></div></div>
       <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="mergeMode" aria-label="保护并复用已有分组" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>保护并复用已有分组</span><p>只整理未分组标签；建议名称与已有分组相同时直接加入。</p></div></div>
       <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="silentAutoAdd" aria-label="本地规则快速归组" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>本地规则快速归组</span><p>根据域名规则和本机学习记录，把新标签直接加入对应分组，不调用模型。</p></div></div>
       <div class="toggle-row"><label class="toggle-switch"><input type="checkbox" id="autoPinApps" aria-label="自动固定网页应用" /><span class="toggle-slider"></span></label><div class="toggle-row-text"><span>自动固定网页应用</span><p>自动将 Gmail、日历、Slack、Spotify 等固定在标签栏左侧。</p></div></div>

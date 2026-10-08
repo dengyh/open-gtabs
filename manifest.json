@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "gTabs 中文版 · TT Switch",
-  "version": "0.5.2",
-  "version_name": "0.5.2 中文安全适配版",
+  "version": "0.5.3",
+  "version_name": "0.5.3 中文安全适配版",
   "description": "使用本机 TT Switch、Ollama 或 Chrome 内置 AI 整理标签页，支持分组预览、撤销、站点排除和网址脱敏。",
   "permissions": [
     "tabs",

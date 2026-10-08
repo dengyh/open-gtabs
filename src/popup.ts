@@ -371,10 +371,9 @@ async function refreshNotice() {
 // --- Init ---
 
 (async () => {
-  const pending = await getSuggestions();
   const currentWindow = await chrome.windows.getCurrent();
-  const scope = await chrome.storage.local.get('suggestionsWindowId');
-  if (pending?.length && (scope.suggestionsWindowId === undefined || scope.suggestionsWindowId === currentWindow.id)) {
+  const pending = currentWindow.id === undefined ? null : await getSuggestions(currentWindow.id);
+  if (pending?.length) {
     setStatus(`${pending.length} 个待确认分组`);
     renderSuggestions(pending);
   }

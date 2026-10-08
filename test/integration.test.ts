@@ -113,7 +113,7 @@ describe('E2E Integration: Message dispatch → Background → Storage', () => {
   });
 
   it('undo after apply restores state', async () => {
-    await chrome.storage.local.set({ suggestionsWindowId: 1 });
+    await chrome.storage.local.set({ 'suggestions:1': [{ name: 'Dev', color: 'blue', tabs: [{ id: 5, title: 'GH', url: 'https://github.com' }] }] });
     vi.mocked(chrome.tabs.query).mockResolvedValue([{ id: 5, title: 'GH', url: 'https://github.com', groupId: -1 }] as any);
     // Apply groups first
     vi.mocked(chrome.tabs.group).mockImplementation(async () => 100);

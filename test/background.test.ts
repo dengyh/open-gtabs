@@ -348,7 +348,7 @@ describe('undo snapshot', () => {
 
   it('refuses undo from another window without modifying tabs', async () => {
     await saveUndoSnapshot({ timestamp: Date.now(), windowId: 2, groups: [], ungrouped: [1] });
-    expect((await undoLastGrouping()).error).toContain('上次整理的窗口');
+    expect((await undoLastGrouping()).error).toContain('没有可撤销');
     expect(chrome.tabs.ungroup).not.toHaveBeenCalled();
     expect(chrome.tabs.group).not.toHaveBeenCalled();
   });
@@ -509,7 +509,7 @@ describe('power tools', () => {
   });
 
   it('deletes all groups in current window and returns cleared group count', async () => {
-    await saveSuggestions([{ name: 'Old', color: 'grey', tabs: [{ id: 1, title: 'A', url: 'https://a.com' }] }]);
+    await saveSuggestions([{ name: 'Old', color: 'grey', tabs: [{ id: 1, title: 'A', url: 'https://a.com' }] }], 1);
     vi.mocked(chrome.tabs.query).mockResolvedValue([
       { id: 1, title: 'A', url: 'https://a.com', groupId: 11 },
       { id: 2, title: 'B', url: 'https://b.com', groupId: 11 },
@@ -607,8 +607,8 @@ describe('event listeners', () => {
     ] as any);
     mockFetchLLM('[]');
 
-    await (chrome.tabs.onCreated as any).callListeners({ id: 1, url: 'https://a.com' });
-    await (chrome.tabs.onCreated as any).callListeners({ id: 2, url: 'https://b.com' });
+    await (chrome.tabs.onCreated as any).callListeners({ id: 1, windowId: 1, url: 'https://a.com' });
+    await (chrome.tabs.onCreated as any).callListeners({ id: 2, windowId: 1, url: 'https://b.com' });
     
     // We called it twice, but it should debounce to 1 organize call
     await vi.runAllTimersAsync();
@@ -630,7 +630,7 @@ describe('event listeners', () => {
     await (chrome.tabs.onUpdated as any).callListeners(1, { status: 'complete' }, tab);
 
     // Should create new group and update title
-    expect(chrome.tabs.group).toHaveBeenCalledWith({ tabIds: [1] });
+    expect(chrome.tabs.group).toHaveBeenCalledWith({ tabIds: [1], createProperties: { windowId: 1 } });
     expect(chrome.tabGroups.update).toHaveBeenCalledWith(100, expect.objectContaining({ title: 'Dev' }));
   });
 

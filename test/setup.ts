@@ -80,7 +80,10 @@ export function resetAllMocks() {
   vi.mocked(chrome.tabGroups.update).mockReset().mockResolvedValue(undefined as any);
   vi.mocked(chrome.windows.getCurrent).mockReset().mockResolvedValue({ id: 1 } as any);
   vi.mocked(chrome.windows.getLastFocused).mockReset().mockResolvedValue({ id: 1 } as any);
-  vi.mocked(chrome.windows.getAll).mockReset().mockResolvedValue([{ id: 1, tabs: [] }] as any);
+  vi.mocked(chrome.windows.getAll).mockReset().mockResolvedValue([{ id: 1, type: 'normal', tabs: [] }] as any);
+  vi.mocked(chrome.windows.get).mockReset().mockImplementation(async id => ({ id, type: 'normal', incognito: false }) as any);
+  vi.mocked(chrome.alarms.create).mockClear();
+  vi.mocked(chrome.alarms.clear).mockClear();
   vi.mocked(chrome.windows.create).mockReset().mockResolvedValue({ id: 2 } as any);
   vi.mocked(chrome.contextMenus.create).mockReset().mockImplementation((_props: any, callback?: () => void) => {
     callback?.();
@@ -132,6 +135,8 @@ let groupIdCounter = 100;
   windows: {
     WINDOW_ID_CURRENT: -2,
     getAll: vi.fn(() => Promise.resolve([])),
+    get: vi.fn(async (id: number) => ({ id, type: 'normal' })),
+    onRemoved: new MockEvent(),
     getCurrent: vi.fn(() => Promise.resolve({ id: 1 })),
     getLastFocused: vi.fn(() => Promise.resolve({ id: 1 })),
     create: vi.fn(() => Promise.resolve({ id: 2 })),
