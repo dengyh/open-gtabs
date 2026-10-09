@@ -17,8 +17,8 @@
 需要 Node.js 22.14+、npm 和 Chrome。选择远程或本机模型服务时，需准备该服务的接口配置。
 
 ```sh
-git clone https://github.com/dengyh/gtabs.git
-cd gtabs
+git clone https://github.com/dengyh/open-gtabs.git
+cd open-gtabs
 npm ci --ignore-scripts
 npm run typecheck
 npm test
@@ -31,7 +31,7 @@ npm run build
 4. 按 [模型接口配置说明](MODEL-SETUP.md) 填写 Base URL、API Key 和模型 ID，然后测试连接。
 5. 先检查“整理方式 → 隐私与数据发送”，排除工作内网站点。首次建议手动整理，确认预览后点击“应用分组”。
 
-仓库为私有仓库，克隆需要仓库访问权限。更新代码后重新运行 `npm ci --ignore-scripts` 和 `npm run build`，再在 Chrome 扩展详情中点击“重新加载”。保持 dist 所在目录稳定，移动目录重新加载可能改变扩展 ID 和存储空间。
+更新代码后重新运行 `npm ci --ignore-scripts` 和 `npm run build`，再在 Chrome 扩展详情中点击“重新加载”。保持 dist 所在目录稳定，移动目录重新加载可能改变扩展 ID 和存储空间。
 
 ## 模型配置示意
 

@@ -14,11 +14,11 @@ All screenshots use the real UI with **synthetic demo data**, reserved example d
 
 ## Install
 
-Requires Node.js 22.14+, npm, and Chrome. This repository is private; cloning requires access.
+Requires Node.js 22.14+, npm, and Chrome.
 
 ```sh
-git clone https://github.com/dengyh/gtabs.git
-cd gtabs
+git clone https://github.com/dengyh/open-gtabs.git
+cd open-gtabs
 npm ci --ignore-scripts
 npm run typecheck
 npm test
