@@ -1,6 +1,8 @@
 node_modules/
 dist/
 coverage/
+output/playwright/
+.playwright-cli/
 *.js.map
 *.zip
 # Local exports can contain private URLs, group names, rules, and service addresses.

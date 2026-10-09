@@ -4,6 +4,14 @@
 
 An independent fork of [vaddisrinivas/gtabs](https://github.com/vaddisrinivas/gtabs) for organizing Chrome tabs with OpenAI-compatible services, local Ollama, or Chrome built-in AI. Version **0.7.0**. This is not the upstream official store release.
 
+## Usage preview
+
+Click **Organize tabs**, review the suggestions, edit group names or colors, then choose **Apply groups**. Here, four fictional tabs are proposed as Development and Travel reading groups. One additional fictional site is excluded; expand the organization report to see why. Suggestions are not applied until you confirm.
+
+<img src="docs/images/organize-en.png" width="360" alt="gTabs preview with fictional development and travel tabs in two suggested groups, awaiting confirmation" />
+
+All screenshots use the real UI with **synthetic demo data**, reserved example domains, fictional titles and model IDs, and an empty API key. They contain no real browsing records, accounts, or internal addresses. The configuration screenshot does not demonstrate a live connection. Click images to enlarge. See [image sources and reproduction](docs/screenshots/README.md).
+
 ## Install
 
 Requires Node.js 22.14+, npm, and Chrome. This repository is private; cloning requires access.
@@ -25,6 +33,24 @@ npm run build
 
 Keep the extension directory in the same location when updating to retain its identity and data. Rebuild, then reload gTabs in Chrome's extension manager.
 
+## Model setup example
+
+In **Settings → Model service**, choose **OpenAI-compatible** and connect your own service:
+
+![Model setup: enter service details, authorize the host, choose a model, then test the connection](docs/images/setup-flow-en.svg)
+
+<img src="docs/images/model-settings-en.png" width="800" alt="OpenAI-compatible setup with an empty API key, api.example.com base URL, placeholder model ID, authorization and connection test controls" />
+
+| Setting | What to enter |
+| --- | --- |
+| Base URL | Remote example: `https://api.example.com/v1`. Local example: `http://localhost:8000/v1`. Use the actual service address without appending `/chat/completions`. |
+| API key | Enter the provider's key. Leave it empty only if the service requires no authentication; the screenshot leaves it empty for privacy. |
+| Host permission | Click **Authorize this endpoint** for remote HTTPS. Localhost / 127.0.0.1 HTTP does not need this step. |
+| Model ID | Refresh and select from the model list, or enter the exact ID manually. `your-model-id` is only a placeholder. |
+| Connection test | After it succeeds, try manual grouping with public pages before enabling automatic organization. |
+
+The example domain is not a working model service. A listed model is not proof of invocation permission, and local proxies may forward requests remotely. See [model setup](MODEL-SETUP.md) for protocol requirements and troubleshooting.
+
 ## Languages
 
 The UI supports Simplified Chinese and English. Follow browser uses Simplified Chinese for Chinese browser locales and falls back to English for other languages. A manual selection is saved locally; the settings page reloads after saving. Newly opened popups, background menus, reminders, dates, and new AI group names use that language. Existing group names, rules, workspaces, titles, URLs, and model IDs are preserved.
@@ -38,6 +64,10 @@ Extension-manager descriptions and shortcut descriptions follow Chrome's languag
 - Domain rules and local learning can route new tabs without a model call. Existing groups can be reused and locked groups are preserved.
 - Cleanup lists idle candidates for review. Only selected tabs are archived and closed, with a final protection check. Active, pinned, audible, loading, locked-group, and incognito tabs are protected.
 - Archives reopen URLs into the current window and retain group metadata. They do not preserve unsaved forms or page login state. Archives remain until explicitly deleted.
+
+Only one of the three fictional idle candidates below is selected. **Archive and close selected** processes the selection; you can instead remind later or keep tabs. Archived URLs can be reopened from **Archives**.
+
+<img src="docs/images/cleanup-en.png" width="800" alt="Idle cleanup with one of three fictional tabs selected, alongside archive, remind-later and keep actions" />
 
 ## Privacy and development
 

@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1131" height="374" viewBox="0 0 1131 374" role="img" aria-labelledby="title desc">
+  <title id="title">Connect an OpenAI-compatible service</title><desc id="desc">Use your own provider settings. Follow these steps for initial setup. If the test fails, check the URL, key, permissions, and model, then retry. Auto-organize starts off.</desc>
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#3c6dc3"/></marker></defs>
+  <rect width="1131" height="374" rx="20" fill="#fff"/>
+  <g font-family="-apple-system,BlinkMacSystemFont,Segoe UI,PingFang SC,Arial,sans-serif">
+  <rect x="32" y="28" width="5" height="34" rx="2.5" fill="#3c6dc3"/>
+  <text x="52" y="57" font-size="30" fill="#243651" font-weight="650">Connect an OpenAI-compatible service</text>
+  <text x="32" y="91" font-size="19" fill="#667a95" font-weight="400">Use your own provider settings. Follow these steps for initial setup.</text><rect x="32" y="124" width="248" height="166" rx="16" fill="#eef3fd"/>
+      <rect x="50" y="140" width="30" height="30" rx="9" fill="#3c6dc3"/>
+      <text x="60" y="162" font-size="20" fill="white" font-weight="600">1</text>
+      <text x="50" y="207" font-size="21" fill="#243651" font-weight="600">Enter service details</text>
+      <text x="50" y="242" font-size="16" fill="#667a95" font-weight="400">Base URL and API key</text>
+      <text x="50" y="270" font-size="16" fill="#667a95" font-weight="400">Use your provider’s values</text>
+      <path d="M280 206 H304" stroke="#3c6dc3" stroke-width="2.5" marker-end="url(#arrow)"/>
+<rect x="305" y="124" width="248" height="166" rx="16" fill="#eef3fd"/>
+      <rect x="323" y="140" width="30" height="30" rx="9" fill="#3c6dc3"/>
+      <text x="333" y="162" font-size="20" fill="white" font-weight="600">2</text>
+      <text x="323" y="207" font-size="21" fill="#243651" font-weight="600">Authorize the host</text>
+      <text x="323" y="242" font-size="16" fill="#667a95" font-weight="400">Remote HTTPS: grant access</text>
+      <text x="323" y="270" font-size="16" fill="#667a95" font-weight="400">Local HTTP: skip this step</text>
+      <path d="M553 206 H577" stroke="#3c6dc3" stroke-width="2.5" marker-end="url(#arrow)"/>
+<rect x="578" y="124" width="248" height="166" rx="16" fill="#eef3fd"/>
+      <rect x="596" y="140" width="30" height="30" rx="9" fill="#3c6dc3"/>
+      <text x="606" y="162" font-size="20" fill="white" font-weight="600">3</text>
+      <text x="596" y="207" font-size="21" fill="#243651" font-weight="600">Choose a model</text>
+      <text x="596" y="242" font-size="16" fill="#667a95" font-weight="400">Refresh the list or enter an ID</text>
+      <text x="596" y="270" font-size="16" fill="#667a95" font-weight="400">Listed ≠ permitted to call</text>
+      <path d="M826 206 H850" stroke="#3c6dc3" stroke-width="2.5" marker-end="url(#arrow)"/>
+<rect x="851" y="124" width="248" height="166" rx="16" fill="#e5f5ef"/>
+      <rect x="869" y="140" width="30" height="30" rx="9" fill="#138978"/>
+      <text x="879" y="162" font-size="20" fill="white" font-weight="600">4</text>
+      <text x="869" y="207" font-size="21" fill="#243651" font-weight="600">Test the connection</text>
+      <text x="869" y="242" font-size="16" fill="#667a95" font-weight="400">Sends a short test message</text>
+      <text x="869" y="270" font-size="16" fill="#667a95" font-weight="400">Then try grouping public tabs</text>
+
+  <text x="32" y="338" font-size="18" fill="#667a95" font-weight="400">If the test fails, check the URL, key, permissions, and model, then retry. Auto-organize starts off.</text>
+  </g></svg>
